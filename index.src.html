@@ -1,0 +1,833 @@
+<title>Hoja de Cálculo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Concepto: cuaderno cuadriculado. Home = tres ramas (d, ∫, ∇) en filas; cada tarjeta abre un modal casi a pantalla completa con fórmulas numeradas y resaltables. */
+:root{
+  --bg:#EDF2F5; --grid:#D7E3EA; --paper:#FBFDFE; --ink:#101C26; --muted:#4E5F6C; --line:#C6D4DD;
+  --d:#C23A22; --i:#1B4FBF; --v:#12794F; --hl:#FFE14D; --hl-ink:#2A2200; --hl-line:#C9A700;
+  --shadow:0 1px 0 rgba(16,28,38,.06),0 8px 24px -12px rgba(16,28,38,.25);
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E161C; --grid:#18262F; --paper:#15212A; --ink:#E6EEF3; --muted:#93A6B3; --line:#2A3B47;
+  --d:#FF7E66; --i:#86AAFF; --v:#52D0A0; --hl:#6A5800; --hl-ink:#FFF3B0; --hl-line:#E0BC00;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -12px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E161C; --grid:#18262F; --paper:#15212A; --ink:#E6EEF3; --muted:#93A6B3; --line:#2A3B47;
+  --d:#FF7E66; --i:#86AAFF; --v:#52D0A0; --hl:#6A5800; --hl-ink:#FFF3B0; --hl-line:#E0BC00;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -12px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px; color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-block:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1120px;margin:0 auto;padding-block:36px 64px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px;margin-bottom:32px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,8vw,76px);line-height:.95;letter-spacing:-.03em;margin:0}
+h1 small{display:block;font-family:var(--f-mono);font-weight:400;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.hint{max-width:34ch;color:var(--muted);margin:0;font-size:14px}
+.hint b{background:var(--hl);color:var(--hl-ink);padding:0 4px;font-weight:500}
+.status{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:center;margin-top:10px}
+.status button{font:inherit;color:var(--ink);background:none;border:1px solid var(--line);padding:2px 8px;cursor:pointer;border-radius:3px}
+.status button:hover{border-color:var(--ink)}
+
+.group{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px 28px;padding-block:26px;border-top:2px solid var(--ink)}
+.glabel{display:flex;flex-direction:column;gap:6px;align-self:start}
+.glyph{font-family:var(--f-display);font-weight:800;font-size:64px;line-height:1;color:var(--c)}
+.gname{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.g-d{--c:var(--d)} .g-i{--c:var(--i)} .g-v{--c:var(--v)} .g-a{--c:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{
+  text-align:left;font:inherit;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:4px;
+  padding:14px 14px 12px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:118px;box-shadow:var(--shadow);
+  transition:transform .15s,border-color .15s;min-width:0;
+}
+.card:hover{transform:translateY(-2px);border-color:var(--c)}
+.card:focus-visible,.f:focus-visible,.close:focus-visible,.chip:focus-visible,.cp:focus-visible{outline:3px solid var(--c,var(--ink));outline-offset:2px}
+.card .t{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.15;letter-spacing:-.01em}
+.card .k{font-size:12.5px;color:var(--muted);flex:1}
+.card .m{font-family:var(--f-mono);font-size:11.5px;color:var(--c);display:flex;justify-content:space-between}
+
+/* modal */
+dialog{
+  border:0;padding:0;background:var(--paper);color:var(--ink);width:min(1180px,96vw);height:min(94vh,1000px);max-width:none;max-height:none;
+  border-radius:6px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);overflow:hidden;
+}
+dialog[open]{display:flex;flex-direction:column;animation:pop .18s ease-out}
+dialog::backdrop{background:rgba(8,14,19,.62);backdrop-filter:blur(2px)}
+@keyframes pop{from{transform:translateY(14px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){dialog[open]{animation:none}.card{transition:none}}
+.mh{display:flex;align-items:center;gap:14px;padding:14px 18px 10px;border-bottom:1px solid var(--line);flex:none}
+.mh .glyph{font-size:40px}
+.mh h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:clamp(22px,3.4vw,32px);letter-spacing:-.02em;line-height:1.05}
+.mh .range{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.mh .sp{flex:1}
+.close{font:inherit;font-size:22px;line-height:1;width:40px;height:40px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer;border-radius:4px;flex:none}
+.close:hover{border-color:var(--ink)}
+.jump{display:flex;gap:8px;overflow-x:auto;padding:8px 18px;border-bottom:1px solid var(--line);flex:none}
+.chip{font:inherit;font-size:12.5px;white-space:nowrap;border:1px solid var(--line);background:none;color:var(--ink);padding:3px 10px;border-radius:99px;cursor:pointer}
+.chip:hover{border-color:var(--c);color:var(--c)}
+.mb{overflow-y:auto;padding:6px 18px 28px;flex:1;scroll-behavior:smooth;overscroll-behavior:contain}
+.blk{padding-top:22px;scroll-margin-top:4px}
+.blk h3{font-family:var(--f-mono);font-weight:500;font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--c);margin:0 0 10px;display:flex;gap:10px;align-items:center}
+.blk h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.fl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:8px}
+.f{
+  position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:center;
+  padding:10px 44px 10px 10px;border:1px solid var(--line);border-radius:4px;cursor:pointer;background:var(--paper);min-width:0;
+  user-select:none;-webkit-user-select:none;transition:background .1s,border-color .1s;
+}
+.f.w{grid-column:1/-1}
+.f:hover{border-color:var(--muted)}
+.f .n{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);align-self:start;padding-top:2px;min-width:2.4ch;text-align:right}
+.f .x{overflow-x:auto;overflow-y:hidden;min-width:0;padding-block:2px}
+.f .note{grid-column:2;font-size:12.5px;color:var(--muted);line-height:1.4}
+.f.on{background:var(--hl);color:var(--hl-ink);border-color:var(--hl-line);box-shadow:0 0 0 2px var(--hl-line)}
+.f.on .n,.f.on .note{color:var(--hl-ink)}
+.f.on .n{font-weight:500}
+.cp{position:absolute;top:6px;right:6px;font:inherit;font-size:13px;width:28px;height:28px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer;border-radius:3px;opacity:.55}
+.f:hover .cp,.cp:focus-visible{opacity:1}
+.cp:hover{border-color:currentColor}
+.cp.ok{color:var(--v);opacity:1}
+.f.on .cp{color:var(--hl-ink)}
+.tip{grid-column:1/-1;border:1px dashed var(--c);border-radius:4px;padding:10px 14px;font-size:14px;display:flex;gap:12px;align-items:baseline}
+.tip b{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;color:var(--c);flex:none}
+.tip span{min-width:0}
+.fig{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:14px}
+.fig svg{width:100%;height:auto;display:block}
+.fig .legend{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.legend .dd{color:var(--d);font-weight:600}.legend .ii{color:var(--i);font-weight:600}
+.mf{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 18px;border-top:1px solid var(--line);font-family:var(--f-mono);font-size:12px;color:var(--muted);min-height:46px}
+.mf .pill{background:var(--hl);color:var(--hl-ink);padding:1px 8px;border-radius:99px;border:1px solid var(--hl-line);cursor:pointer;font:inherit}
+.mf .clr{margin-left:auto;font:inherit;border:1px solid var(--line);background:none;color:var(--ink);padding:3px 10px;border-radius:3px;cursor:pointer}
+.mf .clr:hover{border-color:var(--ink)}
+mjx-container{max-width:100%}
+mjx-container svg{max-width:none}
+@media (max-width:720px){
+  .group{grid-template-columns:1fr}
+  .glabel{flex-direction:row;align-items:baseline;gap:14px}
+  .glyph{font-size:44px}
+  .fig{grid-template-columns:1fr}
+  dialog{width:100vw;height:100dvh;border-radius:0}
+  .mh,.jump,.mb,.mf{padding-left:14px;padding-right:14px}
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><small>Hoja de fórmulas · Cálculo</small>Cálculo<br>diferencial, integral<br>y vectorial</h1>
+    </div>
+    <div>
+      <p class="hint">Abre un tema. Dentro, toca una fórmula para <b>resaltarla</b> y saber cuál estás usando. Tocar de nuevo la quita.</p>
+      <div class="status"><span id="stat">0 resaltadas</span><button id="clearAll" type="button">limpiar todo</button></div>
+    </div>
+  </header>
+  <main id="home"></main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dtitle">
+  <div class="mh"><span class="glyph" id="dglyph"></span>
+    <div><h2 id="dtitle"></h2><div class="range" id="drange"></div></div>
+    <span class="sp"></span>
+    <button class="close" id="dclose" type="button" aria-label="Cerrar">×</button></div>
+  <nav class="jump" id="djump" aria-label="Secciones"></nav>
+  <div class="mb" id="dbody"></div>
+  <div class="mf" id="dfoot"></div>
+</dialog>
+
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],
+    macros:{
+      sen:'\\operatorname{sen}', senh:'\\operatorname{senh}', arcsen:'\\operatorname{arcsen}',
+      arccos:'\\operatorname{arccos}', arctan:'\\operatorname{arctan}', arccot:'\\operatorname{arccot}',
+      arcsec:'\\operatorname{arcsec}', arccsc:'\\operatorname{arccsc}', sgn:'\\operatorname{sgn}',
+      iint:'\\int\\!\\!\\int', iiint:'\\int\\!\\!\\!\\int\\!\\!\\!\\int',
+      oiint:'\\unicode{x222F}', rot:'\\operatorname{rot}', divg:'\\operatorname{div}',
+      proj:'\\operatorname{proj}', R:'\\mathbb{R}'
+    }},
+  svg:{fontCache:'local'},
+  startup:{typeset:false}
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js" async></script>
+
+<script>
+const r = String.raw;
+/* ---------- DATOS ----------
+   item: [tex, nota?, 'w'?]  ·  {tip:'texto'}  ·  {fig:'circulo'}  */
+const GROUPS = [
+{id:'d', cls:'g-d', glyph:'d/dx', name:'Diferencial', cards:[
+ {id:'lim', t:'Límites', k:'Notables, L\'Hôpital, indeterminadas, continuidad', blocks:[
+  {h:'Definición y propiedades', items:[
+   [r`\lim_{x\to a}f(x)=L \iff \forall\varepsilon>0\ \exists\delta>0:\ 0<|x-a|<\delta\Rightarrow|f(x)-L|<\varepsilon`,'Definición ε–δ','w'],
+   [r`\lim_{x\to a}(u\pm v)=\lim_{x\to a}u\pm\lim_{x\to a}v`],
+   [r`\lim_{x\to a}(u\cdot v)=\lim_{x\to a}u\cdot\lim_{x\to a}v`],
+   [r`\lim_{x\to a}\frac{u}{v}=\frac{\lim u}{\lim v}`,'Si \\(\\lim v\\neq0\\)'],
+   [r`\lim_{x\to a}f(x)=f(a)`,'Continuidad en \\(a\\)'],
+   [r`g(x)\le f(x)\le h(x),\ \lim g=\lim h=L\Rightarrow\lim f=L`,'Teorema del sándwich'],
+   [r`\lim_{x\to a}f(x)=L\iff\lim_{x\to a^-}f(x)=\lim_{x\to a^+}f(x)=L`,'Límites laterales']]},
+  {h:'Límites notables', items:[
+   [r`\lim_{x\to0}\frac{\sen x}{x}=1`],
+   [r`\lim_{x\to0}\frac{\tan x}{x}=1`],
+   [r`\lim_{x\to0}\frac{1-\cos x}{x}=0`],
+   [r`\lim_{x\to0}\frac{1-\cos x}{x^2}=\frac12`],
+   [r`\lim_{x\to0}\frac{\arcsen x}{x}=1`],
+   [r`\lim_{x\to0}\frac{\arctan x}{x}=1`],
+   [r`\lim_{x\to0}\frac{e^x-1}{x}=1`],
+   [r`\lim_{x\to0}\frac{a^x-1}{x}=\ln a`],
+   [r`\lim_{x\to0}\frac{\ln(1+x)}{x}=1`],
+   [r`\lim_{x\to0}(1+x)^{1/x}=e`],
+   [r`\lim_{x\to\infty}\Big(1+\frac1x\Big)^{x}=e`],
+   [r`\lim_{x\to\infty}\Big(1+\frac kx\Big)^{x}=e^{k}`],
+   [r`\lim_{x\to\infty}\frac{\ln x}{x^p}=0\quad(p>0)`],
+   [r`\lim_{x\to\infty}\frac{x^n}{e^x}=0`]]},
+  {h:'L\'Hôpital e indeterminadas', items:[
+   [r`\lim_{x\to a}\frac{f(x)}{g(x)}=\lim_{x\to a}\frac{f'(x)}{g'(x)}`,'Solo si da \\(\\tfrac00\\) o \\(\\tfrac\\infty\\infty\\)'],
+   [r`0\cdot\infty:\ \ f\,g=\frac{f}{1/g}`,'Pasar a cociente'],
+   [r`\infty-\infty:\ \ \text{común denominador o racionalizar}`],
+   [r`1^\infty,\ 0^0,\ \infty^0:\ \ \lim f^{g}=e^{\lim g\ln f}`,'Tomar logaritmo'],
+   {tip:'Límite en \\(\\infty\\) de un cociente de polinomios: grado numerador < denominador → 0; iguales → cociente de coeficientes principales; mayor → \\(\\pm\\infty\\).'},
+   [r`\lim_{x\to\infty}\frac{a_nx^n+\cdots}{b_mx^m+\cdots}=\begin{cases}0&n<m\\ a_n/b_m&n=m\\ \pm\infty&n>m\end{cases}`,'','w']]}
+ ]},
+ {id:'der', t:'Derivadas básicas', k:'Potencias, exponencial, log, trigonométricas', blocks:[
+  {h:'Algebraicas', items:[
+   [r`\frac{d}{dx}(c)=0`],[r`\frac{d}{dx}(x)=1`],
+   [r`\frac{d}{dx}(x^n)=n\,x^{n-1}`],
+   [r`\frac{d}{dx}\sqrt{x}=\frac{1}{2\sqrt{x}}`],
+   [r`\frac{d}{dx}\Big(\frac1x\Big)=-\frac1{x^2}`],
+   [r`\frac{d}{dx}\sqrt[n]{x}=\frac{1}{n\,x^{(n-1)/n}}`]]},
+  {h:'Exponenciales y logaritmos', items:[
+   [r`\frac{d}{dx}e^{x}=e^{x}`],
+   [r`\frac{d}{dx}a^{x}=a^{x}\ln a`],
+   [r`\frac{d}{dx}\ln x=\frac1x`],
+   [r`\frac{d}{dx}\ln|x|=\frac1x`],
+   [r`\frac{d}{dx}\log_a x=\frac{1}{x\ln a}`],
+   [r`\frac{d}{dx}x^{x}=x^{x}(\ln x+1)`,'Derivación logarítmica']]},
+  {h:'Trigonométricas', items:[
+   [r`\frac{d}{dx}\sen x=\cos x`],
+   [r`\frac{d}{dx}\cos x=-\sen x`],
+   [r`\frac{d}{dx}\tan x=\sec^2x`],
+   [r`\frac{d}{dx}\cot x=-\csc^2x`],
+   [r`\frac{d}{dx}\sec x=\sec x\tan x`],
+   [r`\frac{d}{dx}\csc x=-\csc x\cot x`],
+   {tip:'Toda función que empieza con «co» (cos, cot, csc) deriva con signo menos.'}]}
+ ]},
+ {id:'inv', t:'Inversas e hiperbólicas', k:'arcsen, arctan, senh, cosh…', blocks:[
+  {h:'Trigonométricas inversas', items:[
+   [r`\frac{d}{dx}\arcsen x=\frac{1}{\sqrt{1-x^2}}`],
+   [r`\frac{d}{dx}\arccos x=-\frac{1}{\sqrt{1-x^2}}`],
+   [r`\frac{d}{dx}\arctan x=\frac{1}{1+x^2}`],
+   [r`\frac{d}{dx}\arccot x=-\frac{1}{1+x^2}`],
+   [r`\frac{d}{dx}\arcsec x=\frac{1}{|x|\sqrt{x^2-1}}`],
+   [r`\frac{d}{dx}\arccsc x=-\frac{1}{|x|\sqrt{x^2-1}}`]]},
+  {h:'Hiperbólicas', items:[
+   [r`\senh x=\frac{e^x-e^{-x}}{2},\qquad\cosh x=\frac{e^x+e^{-x}}{2}`,'Definición','w'],
+   [r`\cosh^2x-\senh^2x=1`],
+   [r`\frac{d}{dx}\senh x=\cosh x`],
+   [r`\frac{d}{dx}\cosh x=\senh x`],
+   [r`\frac{d}{dx}\tanh x=\operatorname{sech}^2x`],
+   [r`\frac{d}{dx}\operatorname{sech}x=-\operatorname{sech}x\tanh x`]]},
+  {h:'Hiperbólicas inversas', items:[
+   [r`\frac{d}{dx}\operatorname{arcsenh}x=\frac{1}{\sqrt{x^2+1}}`],
+   [r`\frac{d}{dx}\operatorname{arccosh}x=\frac{1}{\sqrt{x^2-1}}`],
+   [r`\frac{d}{dx}\operatorname{arctanh}x=\frac{1}{1-x^2}`],
+   [r`\operatorname{arcsenh}x=\ln\big(x+\sqrt{x^2+1}\big)`]]}
+ ]},
+ {id:'reg', t:'Reglas de derivación', k:'Producto, cociente, cadena, implícita, paramétrica', blocks:[
+  {h:'Reglas básicas', items:[
+   [r`\frac{d}{dx}(c\,u)=c\,\frac{du}{dx}`,'Constante'],
+   [r`\frac{d}{dx}(u\pm v)=\frac{du}{dx}\pm\frac{dv}{dx}`,'Suma y resta'],
+   [r`\frac{d}{dx}(u\cdot v)=u\,\frac{dv}{dx}+v\,\frac{du}{dx}`,'Producto'],
+   [r`\frac{d}{dx}\Big(\frac uv\Big)=\frac{v\,\dfrac{du}{dx}-u\,\dfrac{dv}{dx}}{v^2}`,'Cociente'],
+   [r`\frac{d}{dx}(u\,v\,w)=u'vw+uv'w+uvw'`,'Producto de tres'],
+   [r`\frac{d}{dx}\,u^{n}=n\,u^{n-1}\,\frac{du}{dx}`,'Potencia generalizada'],
+   [r`\frac{dy}{dx}=\frac{dy}{du}\cdot\frac{du}{dx}`,'Regla de la cadena, \\(y=y(u),\\ u=u(x)\\)'],
+   [r`\frac{d}{dx}\,y\big(u(x)\big)=y'(u)\cdot u'(x)`,'Cadena, forma función']]},
+  {h:'Cadena aplicada (u = u(x))', items:[
+   [r`\frac{d}{dx}e^{u}=e^{u}\,\frac{du}{dx}`],[r`\frac{d}{dx}a^{u}=a^{u}\ln a\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\ln u=\frac{1}{u}\,\frac{du}{dx}`],[r`\frac{d}{dx}\sen u=\cos u\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\cos u=-\sen u\,\frac{du}{dx}`],[r`\frac{d}{dx}\tan u=\sec^2u\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\arctan u=\frac{1}{1+u^2}\,\frac{du}{dx}`],[r`\frac{d}{dx}\arcsen u=\frac{1}{\sqrt{1-u^2}}\,\frac{du}{dx}`]]},
+  {h:'Casos especiales', items:[
+   [r`\frac{dy}{dx}=-\frac{F_x}{F_y}`,'Implícita \\(F(x,y)=0\\)'],
+   [r`y=u^{v}\Rightarrow\frac{dy}{dx}=u^{v}\Big(\frac{dv}{dx}\ln u+\frac{v}{u}\frac{du}{dx}\Big)`,'Derivación logarítmica','w'],
+   [r`\frac{dx}{dy}=\frac{1}{\,dy/dx\,}`,'Función inversa'],
+   [r`\frac{dy}{dx}=\frac{dy/dt}{dx/dt}`,'Paramétrica'],
+   [r`\frac{d^2y}{dx^2}=\frac{\frac{d}{dt}\big(\frac{dy}{dx}\big)}{dx/dt}`,'Segunda derivada paramétrica'],
+   [r`\frac{d^n}{dx^n}(u\,v)=\sum_{k=0}^{n}\binom nk\,\frac{d^{k}u}{dx^{k}}\,\frac{d^{\,n-k}v}{dx^{\,n-k}}`,'Leibniz (derivada n-ésima de un producto)','w']]}
+ ]},
+ {id:'apl', t:'Aplicaciones', k:'Tangente, extremos, optimización, Newton', blocks:[
+  {h:'Rectas y linealización', items:[
+   [r`y-f(x_0)=f'(x_0)(x-x_0)`,'Recta tangente'],
+   [r`y-f(x_0)=-\frac{1}{f'(x_0)}(x-x_0)`,'Recta normal'],
+   [r`L(x)=f(a)+f'(a)(x-a)`,'Linealización'],
+   [r`dy=f'(x)\,dx`,'Diferencial'],
+   [r`x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}`,'Método de Newton']]},
+  {h:'Extremos y forma de la curva', items:[
+   [r`f'(c)=0\ \text{ o }\ \nexists f'(c)`,'Puntos críticos'],
+   [r`f'>0\Rightarrow\text{crece},\qquad f'<0\Rightarrow\text{decrece}`],
+   [r`f''>0\Rightarrow\text{cóncava hacia arriba},\quad f''<0\Rightarrow\text{hacia abajo}`],
+   [r`f'(c)=0,\ f''(c)>0\Rightarrow\text{mínimo local}`],
+   [r`f'(c)=0,\ f''(c)<0\Rightarrow\text{máximo local}`],
+   [r`f''(c)=0\ \text{y cambia de signo}\Rightarrow\text{punto de inflexión}`]]},
+  {h:'Teoremas', items:[
+   [r`f'(c)=\frac{f(b)-f(a)}{b-a}`,'Valor medio (Lagrange)'],
+   [r`f(a)=f(b)\Rightarrow\exists c:\ f'(c)=0`,'Rolle'],
+   [r`\kappa=\frac{|f''(x)|}{\big(1+f'(x)^2\big)^{3/2}}`,'Curvatura'],
+   {tip:'Optimización: escribe la cantidad a optimizar, elimina variables con la restricción, deriva, iguala a 0 y comprueba con \\(f\'\'\\) o en los extremos del intervalo.'},
+   {tip:'Razones relacionadas: relaciona las variables con una ecuación, deriva ambos lados respecto a \\(t\\) y sustituye los valores en el instante pedido.'}]}
+ ]},
+ {id:'tay', t:'Series y Taylor', k:'Maclaurin, convergencia, residuo', blocks:[
+  {h:'Taylor', items:[
+   [r`f(x)=\sum_{n=0}^{\infty}\frac{f^{(n)}(a)}{n!}(x-a)^n`,'Serie de Taylor en \\(a\\)'],
+   [r`f(x)=\sum_{n=0}^{\infty}\frac{f^{(n)}(0)}{n!}x^n`,'Maclaurin'],
+   [r`R_n(x)=\frac{f^{(n+1)}(c)}{(n+1)!}(x-a)^{n+1}`,'Residuo de Lagrange']]},
+  {h:'Series de Maclaurin notables', items:[
+   [r`e^x=\sum_{n=0}^{\infty}\frac{x^n}{n!}`,'Para todo \\(x\\)'],
+   [r`\sen x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n+1}}{(2n+1)!}`,'Para todo \\(x\\)'],
+   [r`\cos x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n}}{(2n)!}`,'Para todo \\(x\\)'],
+   [r`\frac1{1-x}=\sum_{n=0}^{\infty}x^n`,'\\(|x|<1\\)'],
+   [r`\ln(1+x)=\sum_{n=1}^{\infty}\frac{(-1)^{n+1}x^n}{n}`,'\\(-1<x\\le1\\)'],
+   [r`\arctan x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n+1}}{2n+1}`,'\\(|x|\le1\\)'],
+   [r`(1+x)^k=\sum_{n=0}^{\infty}\binom kn x^n`,'Binomial, \\(|x|<1\\)'],
+   [r`\senh x=\sum_{n=0}^{\infty}\frac{x^{2n+1}}{(2n+1)!},\quad\cosh x=\sum_{n=0}^{\infty}\frac{x^{2n}}{(2n)!}`,'','w']]},
+  {h:'Convergencia de series', items:[
+   [r`\sum_{n=0}^{\infty}ar^n=\frac{a}{1-r}`,'Geométrica, \\(|r|<1\\)'],
+   [r`\sum\frac1{n^p}\ \text{converge}\iff p>1`,'Serie p'],
+   [r`L=\lim_{n\to\infty}\left|\frac{a_{n+1}}{a_n}\right|`,'Razón: \\(L<1\\) converge, \\(L>1\\) diverge'],
+   [r`L=\lim_{n\to\infty}\sqrt[n]{|a_n|}`,'Raíz: igual criterio'],
+   [r`a_n\downarrow0\Rightarrow\sum(-1)^na_n\ \text{converge}`,'Series alternantes (Leibniz)'],
+   [r`R=\lim_{n\to\infty}\left|\frac{a_n}{a_{n+1}}\right|`,'Radio de convergencia'],
+   [r`\lim a_n\neq0\Rightarrow\sum a_n\ \text{diverge}`,'Criterio del término n-ésimo']]}
+ ]}
+]},
+
+{id:'i', cls:'g-i', glyph:'∫', name:'Integral', cards:[
+ {id:'circ', t:'Círculo sen / cos', k:'Ciclo de derivación e integración, tips', blocks:[
+  {h:'El círculo', items:[
+   {fig:'circulo'},
+   [r`\sen x\ \xrightarrow{\ d/dx\ }\ \cos x\ \xrightarrow{\ d/dx\ }\ -\sen x\ \xrightarrow{\ d/dx\ }\ -\cos x\ \xrightarrow{\ d/dx\ }\ \sen x`,'Derivar: sentido horario','w'],
+   [r`\sen x\ \xrightarrow{\ \int\ }\ -\cos x\ \xrightarrow{\ \int\ }\ -\sen x\ \xrightarrow{\ \int\ }\ \cos x\ \xrightarrow{\ \int\ }\ \sen x`,'Integrar: sentido antihorario (sin la constante \\(C\\))','w'],
+   {tip:'Derivar = avanzar un paso horario. Integrar = un paso antihorario. Cuatro pasos regresan al punto de partida.'}]},
+  {h:'Derivadas sucesivas', items:[
+   [r`\frac{d^n}{dx^n}\sen x=\sen\!\Big(x+\frac{n\pi}{2}\Big)`],
+   [r`\frac{d^n}{dx^n}\cos x=\cos\!\Big(x+\frac{n\pi}{2}\Big)`],
+   [r`\frac{d^{4}}{dx^{4}}\sen x=\sen x`,'Periodo 4: usa \\(n\\bmod 4\\)'],
+   [r`\frac{d^n}{dx^n}e^{ax}=a^n e^{ax}`],
+   [r`\frac{d^n}{dx^n}x^m=\frac{m!}{(m-n)!}x^{m-n}`],
+   [r`\frac{d^n}{dx^n}\ln x=\frac{(-1)^{n-1}(n-1)!}{x^n}`]]},
+  {h:'Más trucos de memoria', items:[
+   [r`\int\sen x\,dx=-\cos x+C`,'Integral de seno lleva signo menos'],
+   [r`\int\cos x\,dx=\sen x+C`,'Integral de coseno es positiva'],
+   [r`\int e^{x}dx=e^{x}+C`,'La única que se queda igual al derivar e integrar'],
+   {tip:'Pares «co»: la derivada de cada función «co» lleva menos (cos, cot, csc, arccos, arccot, arccsc). Las inversas «co» comparten el resultado con su pareja, con signo opuesto.'},
+   {tip:'Tangente y secante: \\((\\tan)\'=\\sec^2\\) y \\((\\sec)\'=\\sec\\tan\\). Al integrar, \\(\\int\\sec^2=\\tan\\) y \\(\\int\\sec\\tan=\\sec\\).'},
+   {tip:'Partes con ciclo \\(e^{ax}\\sen bx\\): integra por partes dos veces; aparece la integral original, la pasas al otro lado y despejas.'}]}
+ ]},
+ {id:'inm', t:'Integrales inmediatas', k:'Tabla básica, inversas trigonométricas, raíces', blocks:[
+  {h:'Básicas', items:[
+   [r`\int x^n\,dx=\frac{x^{n+1}}{n+1}+C`,'\\(n\\neq-1\\)'],
+   [r`\int\frac{dx}{x}=\ln|x|+C`],
+   [r`\int e^{x}dx=e^{x}+C`],
+   [r`\int a^{x}dx=\frac{a^{x}}{\ln a}+C`],
+   [r`\int e^{ax}dx=\frac{e^{ax}}{a}+C`],
+   [r`\int f(ax+b)\,dx=\frac1a F(ax+b)+C`,'Cambio lineal'],
+   [r`\int\frac{f'(x)}{f(x)}dx=\ln|f(x)|+C`],
+   [r`\int f'(x)f(x)^n\,dx=\frac{f(x)^{n+1}}{n+1}+C`],
+   [r`\int\ln x\,dx=x\ln x-x+C`],
+   [r`\int\log_a x\,dx=\frac{x\ln x-x}{\ln a}+C`]]},
+  {h:'Trigonométricas', items:[
+   [r`\int\sen x\,dx=-\cos x+C`],
+   [r`\int\cos x\,dx=\sen x+C`],
+   [r`\int\tan x\,dx=-\ln|\cos x|+C=\ln|\sec x|+C`],
+   [r`\int\cot x\,dx=\ln|\sen x|+C`],
+   [r`\int\sec x\,dx=\ln|\sec x+\tan x|+C`],
+   [r`\int\csc x\,dx=-\ln|\csc x+\cot x|+C`],
+   [r`\int\sec^2x\,dx=\tan x+C`],
+   [r`\int\csc^2x\,dx=-\cot x+C`],
+   [r`\int\sec x\tan x\,dx=\sec x+C`],
+   [r`\int\csc x\cot x\,dx=-\csc x+C`],
+   [r`\int\senh x\,dx=\cosh x+C`],
+   [r`\int\cosh x\,dx=\senh x+C`]]},
+  {h:'Formas con a² ± x²', items:[
+   [r`\int\frac{dx}{x^2+a^2}=\frac1a\arctan\frac xa+C`],
+   [r`\int\frac{dx}{\sqrt{a^2-x^2}}=\arcsen\frac xa+C`],
+   [r`\int\frac{dx}{x^2-a^2}=\frac1{2a}\ln\left|\frac{x-a}{x+a}\right|+C`],
+   [r`\int\frac{dx}{a^2-x^2}=\frac1{2a}\ln\left|\frac{a+x}{a-x}\right|+C`],
+   [r`\int\frac{dx}{\sqrt{x^2\pm a^2}}=\ln\left|x+\sqrt{x^2\pm a^2}\right|+C`],
+   [r`\int\frac{dx}{x\sqrt{x^2-a^2}}=\frac1a\arcsec\frac{|x|}{a}+C`],
+   [r`\int\sqrt{a^2-x^2}\,dx=\frac x2\sqrt{a^2-x^2}+\frac{a^2}{2}\arcsen\frac xa+C`],
+   [r`\int\sqrt{x^2\pm a^2}\,dx=\frac x2\sqrt{x^2\pm a^2}\pm\frac{a^2}{2}\ln\left|x+\sqrt{x^2\pm a^2}\right|+C`]]}
+ ]},
+ {id:'tec', t:'Técnicas de integración', k:'Sustitución, partes, trig-sub, fracciones parciales', blocks:[
+  {h:'Sustitución y partes', items:[
+   [r`\int f(g(x))\,g'(x)\,dx=\int f(u)\,du,\quad u=g(x)`,'Sustitución'],
+   [r`\int u\,dv=uv-\int v\,du`,'Integración por partes'],
+   [r`\int_a^b u\,dv=\Big[uv\Big]_a^b-\int_a^b v\,du`,'Partes definida'],
+   {tip:'LIATE para elegir \\(u\\): Logarítmica, Inversa trig, Algebraica, Trigonométrica, Exponencial. La primera que aparezca es \\(u\\).'},
+   {tip:'Partes tabular: columna de derivadas de \\(u\\) hasta 0 y de integrales de \\(dv\\); multiplica en diagonal alternando signos \\(+,-,+,\\dots\\)'},
+   [r`\int e^{ax}\sen bx\,dx=\frac{e^{ax}}{a^2+b^2}\big(a\sen bx-b\cos bx\big)+C`,'Partes cíclica','w'],
+   [r`\int e^{ax}\cos bx\,dx=\frac{e^{ax}}{a^2+b^2}\big(a\cos bx+b\sen bx\big)+C`,'Partes cíclica','w'],
+   [r`\int x^n e^{ax}dx=\frac{x^n e^{ax}}{a}-\frac na\int x^{n-1}e^{ax}dx`,'Reducción'],
+   [r`\int x\ln x\,dx=\frac{x^2}{2}\ln x-\frac{x^2}{4}+C`]]},
+  {h:'Sustitución trigonométrica', items:[
+   [r`\sqrt{a^2-x^2}:\quad x=a\sen\theta,\ \ dx=a\cos\theta\,d\theta,\ \ \sqrt{\ }=a\cos\theta`,'','w'],
+   [r`\sqrt{a^2+x^2}:\quad x=a\tan\theta,\ \ dx=a\sec^2\theta\,d\theta,\ \ \sqrt{\ }=a\sec\theta`,'','w'],
+   [r`\sqrt{x^2-a^2}:\quad x=a\sec\theta,\ \ dx=a\sec\theta\tan\theta\,d\theta,\ \ \sqrt{\ }=a\tan\theta`,'','w'],
+   [r`t=\tan\frac x2:\ \sen x=\frac{2t}{1+t^2},\ \cos x=\frac{1-t^2}{1+t^2},\ dx=\frac{2\,dt}{1+t^2}`,'Weierstrass (funciones racionales de sen y cos)','w']]},
+  {h:'Fracciones parciales', items:[
+   [r`\frac{P(x)}{(x-a)(x-b)}=\frac{A}{x-a}+\frac{B}{x-b}`,'Factores lineales distintos'],
+   [r`\frac{P(x)}{(x-a)^2}=\frac{A}{x-a}+\frac{B}{(x-a)^2}`,'Factor lineal repetido'],
+   [r`\frac{P(x)}{x^2+bx+c}=\frac{Ax+B}{x^2+bx+c}`,'Cuadrático irreducible'],
+   [r`x^2+bx+c=\Big(x+\frac b2\Big)^2+c-\frac{b^2}{4}`,'Completar el cuadrado'],
+   {tip:'Si el grado del numerador es mayor o igual al del denominador, haz primero la división de polinomios.'}]}
+ ]},
+ {id:'itr', t:'Integrales trigonométricas', k:'Potencias, productos, reducción, Wallis', blocks:[
+  {h:'Potencias', items:[
+   [r`\int\sen^2x\,dx=\frac x2-\frac{\sen2x}{4}+C`],
+   [r`\int\cos^2x\,dx=\frac x2+\frac{\sen2x}{4}+C`],
+   [r`\int\tan^2x\,dx=\tan x-x+C`],
+   [r`\int\cot^2x\,dx=-\cot x-x+C`],
+   [r`\int\sec^3x\,dx=\tfrac12\big(\sec x\tan x+\ln|\sec x+\tan x|\big)+C`],
+   [r`\int\tan^3x\,dx=\frac{\tan^2x}{2}+\ln|\cos x|+C`]]},
+  {h:'Fórmulas de reducción', items:[
+   [r`\int\sen^nx\,dx=-\frac{\sen^{n-1}x\cos x}{n}+\frac{n-1}{n}\int\sen^{n-2}x\,dx`],
+   [r`\int\cos^nx\,dx=\frac{\cos^{n-1}x\sen x}{n}+\frac{n-1}{n}\int\cos^{n-2}x\,dx`],
+   [r`\int\tan^nx\,dx=\frac{\tan^{n-1}x}{n-1}-\int\tan^{n-2}x\,dx`],
+   [r`\int\sec^nx\,dx=\frac{\sec^{n-2}x\tan x}{n-1}+\frac{n-2}{n-1}\int\sec^{n-2}x\,dx`],
+   [r`\int_0^{\pi/2}\sen^nx\,dx=\int_0^{\pi/2}\cos^nx\,dx=\frac{(n-1)!!}{n!!}\cdot\begin{cases}\pi/2&n\text{ par}\\1&n\text{ impar}\end{cases}`,'Wallis','w']]},
+  {h:'Cómo atacar potencias de seno y coseno', items:[
+   {tip:'\\(m\\) impar: separa un \\(\\sen x\\,dx\\), cambia el resto con \\(\\sen^2=1-\\cos^2\\) y usa \\(u=\\cos x\\).'},
+   {tip:'\\(n\\) impar: separa un \\(\\cos x\\,dx\\), usa \\(\\cos^2=1-\\sen^2\\) y \\(u=\\sen x\\).'},
+   {tip:'Ambos pares: baja la potencia con \\(\\sen^2=\\tfrac{1-\\cos2x}{2}\\) y \\(\\cos^2=\\tfrac{1+\\cos2x}{2}\\).'},
+   {tip:'\\(\\tan^m\\sec^n\\): \\(n\\) par → \\(u=\\tan x\\) con \\(\\sec^2=1+\\tan^2\\). \\(m\\) impar → \\(u=\\sec x\\) con \\(\\tan^2=\\sec^2-1\\).'},
+   [r`\int\sen mx\cos nx\,dx=\tfrac12\int\big[\sen(m+n)x+\sen(m-n)x\big]dx`,'Producto a suma'],
+   [r`\int\sen mx\sen nx\,dx=\tfrac12\int\big[\cos(m-n)x-\cos(m+n)x\big]dx`,'Producto a suma'],
+   [r`\int\cos mx\cos nx\,dx=\tfrac12\int\big[\cos(m-n)x+\cos(m+n)x\big]dx`,'Producto a suma']]}
+ ]},
+ {id:'def', t:'Integral definida', k:'TFC, simetrías, impropias, métodos numéricos', blocks:[
+  {h:'Teorema fundamental y propiedades', items:[
+   [r`\frac{d}{dx}\int_a^x f(t)\,dt=f(x)`,'TFC parte 1'],
+   [r`\int_a^b f(x)\,dx=F(b)-F(a)`,'TFC parte 2'],
+   [r`\frac{d}{dx}\int_{a(x)}^{b(x)}f(t)\,dt=f(b(x))\,b'(x)-f(a(x))\,a'(x)`,'Regla de Leibniz','w'],
+   [r`\int_a^b f=\lim_{n\to\infty}\sum_{i=1}^{n}f(x_i^*)\,\Delta x,\quad\Delta x=\frac{b-a}{n}`,'Suma de Riemann'],
+   [r`\int_a^b f=-\int_b^a f,\qquad\int_a^a f=0`],
+   [r`\int_a^b f=\int_a^c f+\int_c^b f`,'Aditividad'],
+   [r`f_{\text{prom}}=\frac{1}{b-a}\int_a^b f(x)\,dx`,'Valor promedio'],
+   [r`\Big|\int_a^b f\Big|\le\int_a^b|f|`]]},
+  {h:'Simetría y trucos', items:[
+   [r`f\ \text{par}\Rightarrow\int_{-a}^{a}f=2\int_0^a f`],
+   [r`f\ \text{impar}\Rightarrow\int_{-a}^{a}f=0`],
+   [r`\int_0^a f(x)\,dx=\int_0^a f(a-x)\,dx`],
+   [r`\int_0^{T}f=\frac1k\int_0^{kT}f\quad(f\text{ de periodo }T)`],
+   [r`\int_0^{\pi/2}\frac{\sen x}{\sen x+\cos x}dx=\frac\pi4`,'Ejemplo clásico de \\(f(a-x)\\)']]},
+  {h:'Impropias y especiales', items:[
+   [r`\int_1^{\infty}\frac{dx}{x^p}\ \text{converge}\iff p>1`],
+   [r`\int_0^{1}\frac{dx}{x^p}\ \text{converge}\iff p<1`],
+   [r`\int_a^{\infty}f=\lim_{b\to\infty}\int_a^b f`],
+   [r`\Gamma(n)=\int_0^\infty t^{n-1}e^{-t}dt=(n-1)!`,'Gamma'],
+   [r`\int_{-\infty}^{\infty}e^{-x^2}dx=\sqrt\pi`,'Gaussiana'],
+   [r`\int_0^\infty e^{-ax}dx=\frac1a`]]},
+  {h:'Métodos numéricos', items:[
+   [r`T_n=\frac h2\big[f_0+2f_1+\cdots+2f_{n-1}+f_n\big],\quad h=\frac{b-a}{n}`,'Trapecio','w'],
+   [r`S_n=\frac h3\big[f_0+4f_1+2f_2+\cdots+4f_{n-1}+f_n\big]`,'Simpson (\\(n\\) par)','w']]}
+ ]},
+ {id:'aint', t:'Aplicaciones', k:'Área, volumen, longitud de arco, superficie', blocks:[
+  {h:'Área y volumen', items:[
+   [r`A=\int_a^b\big[f(x)-g(x)\big]dx`,'Entre curvas (\\(f\\ge g\\))'],
+   [r`V=\pi\int_a^b R(x)^2\,dx`,'Discos'],
+   [r`V=\pi\int_a^b\big[R(x)^2-r(x)^2\big]dx`,'Arandelas'],
+   [r`V=2\pi\int_a^b x\,f(x)\,dx`,'Capas cilíndricas'],
+   [r`V=\int_a^b A(x)\,dx`,'Secciones transversales']]},
+  {h:'Longitud y superficie', items:[
+   [r`L=\int_a^b\sqrt{1+\big(f'(x)\big)^2}\,dx`,'Longitud de arco'],
+   [r`L=\int_\alpha^\beta\sqrt{x'(t)^2+y'(t)^2}\,dt`,'Paramétrica'],
+   [r`S=2\pi\int_a^b f(x)\sqrt{1+\big(f'(x)\big)^2}\,dx`,'Superficie de revolución'],
+   [r`A=\tfrac12\int_\alpha^\beta r^2\,d\theta`,'Área en polares'],
+   [r`L=\int_\alpha^\beta\sqrt{r^2+\Big(\frac{dr}{d\theta}\Big)^2}\,d\theta`,'Longitud en polares']]},
+  {h:'Física', items:[
+   [r`W=\int_a^b F(x)\,dx`,'Trabajo'],
+   [r`\bar x=\frac{\int x\,\rho(x)\,dx}{\int\rho(x)\,dx}`,'Centro de masa'],
+   [r`M=\int_a^b\rho(x)\,dx`,'Masa']]}
+ ]}
+]},
+
+{id:'v', cls:'g-v', glyph:'∇', name:'Vectorial', cards:[
+ {id:'vec', t:'Vectores', k:'Punto, cruz, proyección, triple producto', blocks:[
+  {h:'Producto punto', items:[
+   [r`\mathbf a\cdot\mathbf b=a_1b_1+a_2b_2+a_3b_3=|\mathbf a||\mathbf b|\cos\theta`],
+   [r`|\mathbf a|=\sqrt{\mathbf a\cdot\mathbf a}=\sqrt{a_1^2+a_2^2+a_3^2}`,'Norma'],
+   [r`\hat{\mathbf a}=\frac{\mathbf a}{|\mathbf a|}`,'Vector unitario'],
+   [r`\mathbf a\perp\mathbf b\iff\mathbf a\cdot\mathbf b=0`],
+   [r`\proj_{\mathbf b}\mathbf a=\frac{\mathbf a\cdot\mathbf b}{|\mathbf b|^2}\,\mathbf b`,'Proyección vectorial'],
+   [r`\operatorname{comp}_{\mathbf b}\mathbf a=\frac{\mathbf a\cdot\mathbf b}{|\mathbf b|}`,'Componente escalar'],
+   [r`|\mathbf a\cdot\mathbf b|\le|\mathbf a||\mathbf b|`,'Cauchy–Schwarz'],
+   [r`|\mathbf a+\mathbf b|\le|\mathbf a|+|\mathbf b|`,'Desigualdad triangular'],
+   [r`\cos^2\alpha+\cos^2\beta+\cos^2\gamma=1`,'Cosenos directores']]},
+  {h:'Producto cruz', items:[
+   [r`\mathbf a\times\mathbf b=\begin{vmatrix}\mathbf i&\mathbf j&\mathbf k\\a_1&a_2&a_3\\b_1&b_2&b_3\end{vmatrix}`],
+   [r`|\mathbf a\times\mathbf b|=|\mathbf a||\mathbf b|\sen\theta`,'Área del paralelogramo'],
+   [r`\mathbf a\times\mathbf b=-\,\mathbf b\times\mathbf a`,'Anticonmutativo'],
+   [r`\mathbf a\parallel\mathbf b\iff\mathbf a\times\mathbf b=\mathbf 0`],
+   [r`A_{\triangle}=\tfrac12|\mathbf a\times\mathbf b|`],
+   [r`\mathbf a\times(\mathbf b\times\mathbf c)=\mathbf b(\mathbf a\cdot\mathbf c)-\mathbf c(\mathbf a\cdot\mathbf b)`,'Triple producto vectorial'],
+   [r`V=\big|\mathbf a\cdot(\mathbf b\times\mathbf c)\big|`,'Triple escalar: volumen del paralelepípedo'],
+   [r`\mathbf a\cdot(\mathbf b\times\mathbf c)=\begin{vmatrix}a_1&a_2&a_3\\b_1&b_2&b_3\\c_1&c_2&c_3\end{vmatrix}`,'','w'],
+   {tip:'Coplanares ⇔ triple escalar = 0. Regla de la mano derecha para la dirección de \\(\\mathbf a\\times\\mathbf b\\).'}]}
+ ]},
+ {id:'rec', t:'Rectas, planos y cuádricas', k:'Ecuaciones, distancias, ángulos, superficies', blocks:[
+  {h:'Rectas', items:[
+   [r`\mathbf r(t)=\mathbf r_0+t\,\mathbf v`,'Vectorial'],
+   [r`x=x_0+at,\ \ y=y_0+bt,\ \ z=z_0+ct`,'Paramétrica'],
+   [r`\frac{x-x_0}{a}=\frac{y-y_0}{b}=\frac{z-z_0}{c}`,'Simétrica']]},
+  {h:'Planos', items:[
+   [r`a(x-x_0)+b(y-y_0)+c(z-z_0)=0`,'Normal \\(\\mathbf n=(a,b,c)\\)'],
+   [r`ax+by+cz+d=0`],
+   [r`\mathbf n=\mathbf u\times\mathbf v`,'Plano por dos direcciones'],
+   [r`\cos\theta=\frac{|\mathbf n_1\cdot\mathbf n_2|}{|\mathbf n_1||\mathbf n_2|}`,'Ángulo entre planos']]},
+  {h:'Distancias', items:[
+   [r`d=\frac{|ax_0+by_0+cz_0+d|}{\sqrt{a^2+b^2+c^2}}`,'Punto a plano'],
+   [r`d=\frac{|\overrightarrow{P_0P}\times\mathbf v|}{|\mathbf v|}`,'Punto a recta'],
+   [r`d=\frac{\big|\overrightarrow{P_1P_2}\cdot(\mathbf v_1\times\mathbf v_2)\big|}{|\mathbf v_1\times\mathbf v_2|}`,'Entre rectas que se cruzan'],
+   [r`d=\frac{|d_1-d_2|}{\sqrt{a^2+b^2+c^2}}`,'Entre planos paralelos']]},
+  {h:'Cuádricas', items:[
+   [r`(x-h)^2+(y-k)^2+(z-l)^2=\rho^2`,'Esfera'],
+   [r`\frac{x^2}{a^2}+\frac{y^2}{b^2}+\frac{z^2}{c^2}=1`,'Elipsoide'],
+   [r`\frac{x^2}{a^2}+\frac{y^2}{b^2}-\frac{z^2}{c^2}=1`,'Hiperboloide de una hoja'],
+   [r`-\frac{x^2}{a^2}-\frac{y^2}{b^2}+\frac{z^2}{c^2}=1`,'Hiperboloide de dos hojas'],
+   [r`\frac{z^2}{c^2}=\frac{x^2}{a^2}+\frac{y^2}{b^2}`,'Cono elíptico'],
+   [r`\frac zc=\frac{x^2}{a^2}+\frac{y^2}{b^2}`,'Paraboloide elíptico'],
+   [r`\frac zc=\frac{x^2}{a^2}-\frac{y^2}{b^2}`,'Paraboloide hiperbólico (silla)']]}
+ ]},
+ {id:'cur', t:'Curvas en el espacio', k:'Velocidad, Frenet, curvatura, torsión', blocks:[
+  {h:'Movimiento', items:[
+   [r`\mathbf r(t)=\big(x(t),y(t),z(t)\big)`],
+   [r`\mathbf v=\mathbf r'(t),\quad\mathbf a=\mathbf r''(t)`],
+   [r`s(t)=\int_a^t|\mathbf r'(u)|\,du`,'Longitud de arco'],
+   [r`L=\int_a^b|\mathbf r'(t)|\,dt`],
+   [r`a_T=\frac{\mathbf r'\cdot\mathbf r''}{|\mathbf r'|},\qquad a_N=\frac{|\mathbf r'\times\mathbf r''|}{|\mathbf r'|}`,'Aceleración tangencial y normal'],
+   [r`\mathbf a=a_T\,\mathbf T+a_N\,\mathbf N`]]},
+  {h:'Triedro de Frenet', items:[
+   [r`\mathbf T=\frac{\mathbf r'}{|\mathbf r'|}`,'Tangente unitario'],
+   [r`\mathbf N=\frac{\mathbf T'}{|\mathbf T'|}`,'Normal principal'],
+   [r`\mathbf B=\mathbf T\times\mathbf N`,'Binormal'],
+   [r`\kappa=\frac{|\mathbf T'|}{|\mathbf r'|}=\frac{|\mathbf r'\times\mathbf r''|}{|\mathbf r'|^3}`,'Curvatura'],
+   [r`\tau=\frac{(\mathbf r'\times\mathbf r'')\cdot\mathbf r'''}{|\mathbf r'\times\mathbf r''|^2}`,'Torsión'],
+   [r`\rho=\frac1\kappa`,'Radio de curvatura']]}
+ ]},
+ {id:'mv', t:'Varias variables', k:'Parciales, gradiente, cadena, extremos, Lagrange', blocks:[
+  {h:'Derivadas', items:[
+   [r`f_x=\frac{\partial f}{\partial x}=\lim_{h\to0}\frac{f(x+h,y)-f(x,y)}{h}`],
+   [r`f_{xy}=f_{yx}`,'Teorema de Clairaut (parciales continuas)'],
+   [r`df=f_x\,dx+f_y\,dy+f_z\,dz`,'Diferencial total'],
+   [r`\nabla f=\Big(\frac{\partial f}{\partial x},\frac{\partial f}{\partial y},\frac{\partial f}{\partial z}\Big)`,'Gradiente'],
+   [r`D_{\mathbf u}f=\nabla f\cdot\mathbf u,\quad|\mathbf u|=1`,'Derivada direccional'],
+   {tip:'\\(\\nabla f\\) apunta hacia donde \\(f\\) crece más rápido, con razón \\(|\\nabla f|\\), y es perpendicular a las curvas o superficies de nivel.'}]},
+  {h:'Planos tangentes y cadena', items:[
+   [r`z-z_0=f_x(x_0,y_0)(x-x_0)+f_y(x_0,y_0)(y-y_0)`,'Plano tangente a \\(z=f(x,y)\\)','w'],
+   [r`\nabla F(P_0)\cdot(\mathbf r-\mathbf r_0)=0`,'Plano tangente a \\(F(x,y,z)=c\\)'],
+   [r`\frac{dz}{dt}=\frac{\partial z}{\partial x}\frac{dx}{dt}+\frac{\partial z}{\partial y}\frac{dy}{dt}`,'Regla de la cadena'],
+   [r`\frac{\partial z}{\partial x}=-\frac{F_x}{F_z}`,'Derivada implícita'],
+   [r`L(x,y)=f(a,b)+f_x(a,b)(x-a)+f_y(a,b)(y-b)`,'Linealización']]},
+  {h:'Extremos', items:[
+   [r`\nabla f=\mathbf 0`,'Puntos críticos'],
+   [r`D=f_{xx}f_{yy}-\big(f_{xy}\big)^2`,'Discriminante (Hessiano)'],
+   [r`D>0,\ f_{xx}>0\Rightarrow\text{mínimo local}`],
+   [r`D>0,\ f_{xx}<0\Rightarrow\text{máximo local}`],
+   [r`D<0\Rightarrow\text{punto silla}`],
+   [r`\nabla f=\lambda\,\nabla g,\quad g=k`,'Multiplicadores de Lagrange']]}
+ ]},
+ {id:'mult', t:'Integrales múltiples', k:'Fubini, polares, cilíndricas, esféricas, Jacobiano', blocks:[
+  {h:'Integrales dobles y triples', items:[
+   [r`\iint_R f\,dA=\int_a^b\!\!\int_{g_1(x)}^{g_2(x)}f(x,y)\,dy\,dx`,'Región tipo I (Fubini)'],
+   [r`A=\iint_R dA,\qquad V=\iiint_E dV`],
+   [r`V=\iint_R f(x,y)\,dA`,'Volumen bajo \\(z=f\\)'],
+   [r`M=\iiint_E\rho\,dV`,'Masa'],
+   [r`\bar x=\frac1M\iiint_E x\,\rho\,dV`,'Centro de masa'],
+   [r`I_z=\iiint_E(x^2+y^2)\,\rho\,dV`,'Momento de inercia']]},
+  {h:'Cambio de coordenadas', items:[
+   [r`x=r\cos\theta,\ y=r\sen\theta,\ \ dA=r\,dr\,d\theta`,'Polares'],
+   [r`x=r\cos\theta,\ y=r\sen\theta,\ z=z,\ \ dV=r\,dz\,dr\,d\theta`,'Cilíndricas'],
+   [r`x=\rho\sen\varphi\cos\theta,\ y=\rho\sen\varphi\sen\theta,\ z=\rho\cos\varphi`,'Esféricas','w'],
+   [r`dV=\rho^2\sen\varphi\,d\rho\,d\varphi\,d\theta`,'Esféricas'],
+   [r`\iint f(x,y)\,dA=\iint f\big(x(u,v),y(u,v)\big)\left|\frac{\partial(x,y)}{\partial(u,v)}\right|du\,dv`,'Cambio general','w'],
+   [r`\frac{\partial(x,y)}{\partial(u,v)}=\begin{vmatrix}x_u&x_v\\y_u&y_v\end{vmatrix}`,'Jacobiano']]}
+ ]},
+ {id:'ops', t:'Operadores y campos', k:'Div, rot, Laplaciano, identidades, potencial', blocks:[
+  {h:'Definiciones', items:[
+   [r`\nabla=\Big(\frac{\partial}{\partial x},\frac{\partial}{\partial y},\frac{\partial}{\partial z}\Big)`],
+   [r`\divg\mathbf F=\nabla\cdot\mathbf F=P_x+Q_y+R_z`,'Divergencia, \\(\\mathbf F=(P,Q,R)\\)'],
+   [r`\rot\mathbf F=\nabla\times\mathbf F=\begin{vmatrix}\mathbf i&\mathbf j&\mathbf k\\\partial_x&\partial_y&\partial_z\\P&Q&R\end{vmatrix}`,'Rotacional'],
+   [r`\nabla^2f=\nabla\cdot\nabla f=f_{xx}+f_{yy}+f_{zz}`,'Laplaciano']]},
+  {h:'Identidades', items:[
+   [r`\nabla\times(\nabla f)=\mathbf 0`],
+   [r`\nabla\cdot(\nabla\times\mathbf F)=0`],
+   [r`\nabla(fg)=f\nabla g+g\nabla f`],
+   [r`\nabla\cdot(f\mathbf F)=\nabla f\cdot\mathbf F+f\,\nabla\cdot\mathbf F`],
+   [r`\nabla\times(f\mathbf F)=\nabla f\times\mathbf F+f\,\nabla\times\mathbf F`],
+   [r`\nabla\cdot(\mathbf F\times\mathbf G)=\mathbf G\cdot(\nabla\times\mathbf F)-\mathbf F\cdot(\nabla\times\mathbf G)`,'','w']]},
+  {h:'Campos conservativos', items:[
+   [r`\mathbf F=\nabla f\iff\mathbf F\ \text{conservativo}`],
+   [r`\nabla\times\mathbf F=\mathbf 0\Rightarrow\mathbf F\ \text{conservativo}`,'En dominio simplemente conexo'],
+   [r`Q_x=P_y`,'Criterio en el plano'],
+   {tip:'Para hallar el potencial: integra \\(P\\) respecto a \\(x\\), deriva respecto a \\(y\\) e iguala con \\(Q\\) para hallar lo que falta. Repite con \\(z\\).'}]}
+ ]},
+ {id:'lin', t:'Línea y superficie', k:'Trabajo, flujo, dS, parametrización', blocks:[
+  {h:'Integrales de línea', items:[
+   [r`\int_C f\,ds=\int_a^b f(\mathbf r(t))\,|\mathbf r'(t)|\,dt`,'Campo escalar'],
+   [r`\int_C\mathbf F\cdot d\mathbf r=\int_a^b\mathbf F(\mathbf r(t))\cdot\mathbf r'(t)\,dt`,'Trabajo'],
+   [r`\int_C P\,dx+Q\,dy+R\,dz`,'Forma diferencial'],
+   [r`\int_C\nabla f\cdot d\mathbf r=f(B)-f(A)`,'Teorema fundamental'],
+   [r`\oint_C\mathbf F\cdot d\mathbf r=0\ \text{si }\mathbf F\ \text{es conservativo}`]]},
+  {h:'Integrales de superficie', items:[
+   [r`dS=|\mathbf r_u\times\mathbf r_v|\,du\,dv`,'Superficie parametrizada'],
+   [r`dS=\sqrt{1+g_x^2+g_y^2}\,dA`,'Superficie \\(z=g(x,y)\\)'],
+   [r`\iint_S f\,dS=\iint_D f(\mathbf r(u,v))\,|\mathbf r_u\times\mathbf r_v|\,du\,dv`,'','w'],
+   [r`\iint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iint_D\mathbf F\cdot(\mathbf r_u\times\mathbf r_v)\,du\,dv`,'Flujo','w'],
+   [r`\iint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iint_D\mathbf F\cdot(-g_x,-g_y,1)\,dA`,'Flujo hacia arriba, \\(z=g\\)','w'],
+   [r`A(S)=\iint_S dS`,'Área de superficie']]}
+ ]},
+ {id:'teo', t:'Green, Stokes, Gauss', k:'Los tres teoremas integrales', blocks:[
+  {h:'Teoremas', items:[
+   [r`\oint_C P\,dx+Q\,dy=\iint_D\Big(\frac{\partial Q}{\partial x}-\frac{\partial P}{\partial y}\Big)dA`,'Green (\\(C\\) antihoraria)','w'],
+   [r`A=\tfrac12\oint_C x\,dy-y\,dx`,'Área por Green'],
+   [r`\oint_C\mathbf F\cdot\hat{\mathbf n}\,ds=\iint_D\nabla\cdot\mathbf F\,dA`,'Green, forma de flujo'],
+   [r`\oint_C\mathbf F\cdot d\mathbf r=\iint_S(\nabla\times\mathbf F)\cdot\hat{\mathbf n}\,dS`,'Stokes','w'],
+   [r`\oiint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iiint_E\nabla\cdot\mathbf F\,dV`,'Divergencia (Gauss)','w']]},
+  {h:'Cómo elegir', items:[
+   {tip:'Green: curva cerrada en el plano. Stokes: curva cerrada en el espacio que borda una superficie. Gauss: superficie cerrada que encierra un sólido, con normal hacia afuera.'},
+   {tip:'Orientación: recorre la curva con la superficie a tu izquierda (mano derecha). Si la curva no cierra la superficie, agrega tapas o usa el teorema fundamental.'},
+   [r`\int_{\partial\Omega}\omega=\int_{\Omega}d\omega`,'Los cuatro teoremas son el mismo: Stokes generalizado']]}
+ ]}
+]},
+
+{id:'a', cls:'g-a', glyph:'⌘', name:'Apoyo', cards:[
+ {id:'idt', t:'Identidades trigonométricas', k:'Pitagóricas, ángulo doble, suma, producto', blocks:[
+  {h:'Básicas', items:[
+   [r`\sen^2x+\cos^2x=1`],[r`1+\tan^2x=\sec^2x`],[r`1+\cot^2x=\csc^2x`],
+   [r`\tan x=\frac{\sen x}{\cos x},\quad\cot x=\frac{\cos x}{\sen x}`],
+   [r`\sec x=\frac1{\cos x},\quad\csc x=\frac1{\sen x}`],
+   [r`\sen(-x)=-\sen x,\quad\cos(-x)=\cos x`,'Paridad'],
+   [r`\sen\!\Big(\frac\pi2-x\Big)=\cos x`,'Cofunción']]},
+  {h:'Suma y ángulo doble', items:[
+   [r`\sen(a\pm b)=\sen a\cos b\pm\cos a\sen b`],
+   [r`\cos(a\pm b)=\cos a\cos b\mp\sen a\sen b`],
+   [r`\tan(a\pm b)=\frac{\tan a\pm\tan b}{1\mp\tan a\tan b}`],
+   [r`\sen2x=2\sen x\cos x`],
+   [r`\cos2x=\cos^2x-\sen^2x=2\cos^2x-1=1-2\sen^2x`,'','w'],
+   [r`\tan2x=\frac{2\tan x}{1-\tan^2x}`]]},
+  {h:'Reducción de potencia y producto', items:[
+   [r`\sen^2x=\frac{1-\cos2x}{2}`],[r`\cos^2x=\frac{1+\cos2x}{2}`],
+   [r`\sen a\cos b=\tfrac12\big[\sen(a+b)+\sen(a-b)\big]`],
+   [r`\sen a\sen b=\tfrac12\big[\cos(a-b)-\cos(a+b)\big]`],
+   [r`\cos a\cos b=\tfrac12\big[\cos(a-b)+\cos(a+b)\big]`],
+   [r`\sen\frac x2=\pm\sqrt{\frac{1-\cos x}{2}},\quad\cos\frac x2=\pm\sqrt{\frac{1+\cos x}{2}}`,'Ángulo mitad'],
+   [r`e^{i\theta}=\cos\theta+i\sen\theta`,'Euler']]}
+ ]},
+ {id:'ang', t:'Ángulos notables', k:'Tabla del círculo unitario', blocks:[
+  {h:'Tabla', items:[
+   [r`\begin{array}{c|ccccccccc}\theta&0&30^\circ&45^\circ&60^\circ&90^\circ&120^\circ&135^\circ&150^\circ&180^\circ\\\theta\,\text{rad}&0&\frac\pi6&\frac\pi4&\frac\pi3&\frac\pi2&\frac{2\pi}3&\frac{3\pi}4&\frac{5\pi}6&\pi\\\hline\sen\theta&0&\frac12&\frac{\sqrt2}2&\frac{\sqrt3}2&1&\frac{\sqrt3}2&\frac{\sqrt2}2&\frac12&0\\[4pt]\cos\theta&1&\frac{\sqrt3}2&\frac{\sqrt2}2&\frac12&0&-\frac12&-\frac{\sqrt2}2&-\frac{\sqrt3}2&-1\\[4pt]\tan\theta&0&\frac{\sqrt3}3&1&\sqrt3&\text{—}&-\sqrt3&-1&-\frac{\sqrt3}3&0\end{array}`,'Primer y segundo cuadrante','w'],
+   {tip:'Seno en 0°, 30°, 45°, 60°, 90°: \\(\\tfrac{\\sqrt0}{2},\\tfrac{\\sqrt1}{2},\\tfrac{\\sqrt2}{2},\\tfrac{\\sqrt3}{2},\\tfrac{\\sqrt4}{2}\\). El coseno va en orden inverso.'},
+   {tip:'Mano izquierda: baja el dedo del ángulo; dedos abajo = \\(n\\) en \\(\\tfrac{\\sqrt n}{2}\\) para el seno, dedos arriba para el coseno.'},
+   [r`\pi\ \text{rad}=180^\circ,\qquad1\ \text{rad}=\frac{180^\circ}{\pi}`,'Conversión'],
+   [r`s=r\theta,\qquad A_{\text{sector}}=\tfrac12r^2\theta`,'Arco y sector']]}
+ ]},
+ {id:'alg', t:'Álgebra y logaritmos', k:'Logaritmos, binomio, factorización', blocks:[
+  {h:'Logaritmos y exponentes', items:[
+   [r`\ln(ab)=\ln a+\ln b`],[r`\ln\frac ab=\ln a-\ln b`],[r`\ln a^{n}=n\ln a`],
+   [r`\log_a x=\frac{\ln x}{\ln a}`,'Cambio de base'],
+   [r`e^{\ln x}=x,\qquad\ln e^{x}=x`],
+   [r`a^{m}a^{n}=a^{m+n},\quad\frac{a^m}{a^n}=a^{m-n},\quad(a^m)^n=a^{mn}`,'','w']]},
+  {h:'Factorización y binomio', items:[
+   [r`a^2-b^2=(a-b)(a+b)`],
+   [r`a^3\pm b^3=(a\pm b)(a^2\mp ab+b^2)`],
+   [r`(a\pm b)^2=a^2\pm2ab+b^2`],
+   [r`(a+b)^n=\sum_{k=0}^{n}\binom nk a^{n-k}b^k`],
+   [r`x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}`,'Fórmula general'],
+   [r`\binom nk=\frac{n!}{k!\,(n-k)!}`]]}
+ ]}
+]}
+];
+
+/* ---------- numeración global ---------- */
+let N=0;
+GROUPS.forEach(g=>g.cards.forEach(c=>{
+  c.first=N+1; c.count=0;
+  c.blocks.forEach((b,bi)=>{b.id=c.id+'-b'+bi; b.items.forEach(it=>{if(Array.isArray(it)){it.n=++N;c.count++;}});});
+  c.last=N;
+}));
+
+/* ---------- estado ---------- */
+const KEY='hoja-calculo-resaltadas';
+let hl=new Set();
+try{const s=localStorage.getItem(KEY); if(s) hl=new Set(JSON.parse(s));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify([...hl]));}catch(e){}}
+
+const $=s=>document.querySelector(s);
+const home=$('#home'), dlg=$('#dlg'), dbody=$('#dbody'), dfoot=$('#dfoot'), djump=$('#djump');
+const built=new Map(); let current=null, currentGroup=null;
+
+/* ---------- home ---------- */
+GROUPS.forEach(g=>{
+  const sec=document.createElement('section'); sec.className='group '+g.cls;
+  sec.innerHTML='<div class="glabel"><span class="glyph"></span><span class="gname"></span></div><div class="cards"></div>';
+  sec.querySelector('.glyph').textContent=g.glyph; sec.querySelector('.gname').textContent=g.name;
+  const wrap=sec.querySelector('.cards');
+  g.cards.forEach(c=>{
+    const b=document.createElement('button'); b.type='button'; b.className='card';
+    b.innerHTML='<span class="t"></span><span class="k"></span><span class="m"><span class="a"></span><span class="b"></span></span>';
+    b.querySelector('.t').textContent=c.t; b.querySelector('.k').textContent=c.k;
+    b.querySelector('.a').textContent=c.count+' fórmulas'; b.querySelector('.b').textContent='#'+c.first+'–'+c.last;
+    b.addEventListener('click',()=>openCard(g,c));
+    wrap.appendChild(b);
+  });
+  home.appendChild(sec);
+});
+
+/* ---------- figura del círculo ---------- */
+function circuloSVG(){
+  const cx=200,cy=200,Rn=118,ns='http://www.w3.org/2000/svg';
+  const pol=(a,rad)=>[cx+rad*Math.cos(a*Math.PI/180),cy+rad*Math.sin(a*Math.PI/180)];
+  const labels=['sen x','cos x','−sen x','−cos x'];
+  let s='<svg viewBox="0 0 400 400" role="img" aria-label="Círculo de derivación e integración de seno y coseno"><defs>'
+   +'<marker id="ad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--d)"/></marker>'
+   +'<marker id="ai" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--i)"/></marker></defs>';
+  s+='<circle cx="200" cy="200" r="118" fill="none" stroke="var(--line)" stroke-dasharray="3 5"/>';
+  for(let k=0;k<4;k++){
+    const a0=-90+90*k;
+    // derivar (horario, radio exterior)
+    let [x1,y1]=pol(a0+24,158),[x2,y2]=pol(a0+66,158);
+    s+=`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A158 158 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="var(--d)" stroke-width="3" marker-end="url(#ad)"/>`;
+    let [tx,ty]=pol(a0+45,176);
+    s+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="var(--d)" font-family="IBM Plex Mono,monospace" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="middle">d/dx</text>`;
+    // integrar (antihorario, radio interior)
+    [x1,y1]=pol(a0+66,78); [x2,y2]=pol(a0+24,78);
+    s+=`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A78 78 0 0 0 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="var(--i)" stroke-width="3" marker-end="url(#ai)"/>`;
+    [tx,ty]=pol(a0+45,56);
+    s+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="var(--i)" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="500" text-anchor="middle" dominant-baseline="middle">∫</text>`;
+  }
+  for(let k=0;k<4;k++){
+    const [x,y]=pol(-90+90*k,Rn);
+    s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="33" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>`
+      +`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="var(--ink)" font-family="IBM Plex Sans,sans-serif" font-size="15" font-weight="600" text-anchor="middle" dominant-baseline="middle">${labels[k]}</text>`;
+  }
+  return s+'</svg>';
+}
+
+/* ---------- construir modal ---------- */
+function buildCard(c){
+  const root=document.createDocumentFragment();
+  c.blocks.forEach(b=>{
+    const sec=document.createElement('section'); sec.className='blk'; sec.id=b.id;
+    const h=document.createElement('h3'); h.textContent=b.h; sec.appendChild(h);
+    const list=document.createElement('div'); list.className='fl';
+    b.items.forEach(it=>{
+      if(Array.isArray(it)){
+        const [tex,note,flag]=it, n=it.n;
+        const f=document.createElement('div'); f.className='f'+(flag==='w'?' w':''); f.tabIndex=0; f.setAttribute('role','button');
+        f.dataset.n=n; f.id='f'+n;
+        const nn=document.createElement('span'); nn.className='n'; nn.textContent=n;
+        const x=document.createElement('div'); x.className='x'; x.textContent='\\['+'\\displaystyle '+tex+'\\]';
+        f.append(nn,x);
+        if(note){const no=document.createElement('div'); no.className='note'; no.textContent=note; f.appendChild(no);}
+        const cp=document.createElement('button'); cp.type='button'; cp.className='cp'; cp.title='Copiar LaTeX'; cp.setAttribute('aria-label','Copiar LaTeX de la fórmula '+n); cp.textContent='⧉';
+        cp.addEventListener('click',e=>{e.stopPropagation(); copyTex(tex,cp);});
+        f.appendChild(cp);
+        setOn(f,hl.has(n));
+        list.appendChild(f);
+      }else if(it.tip){
+        const t=document.createElement('div'); t.className='tip'; const bb=document.createElement('b'); bb.textContent='TIP'; const sp=document.createElement('span'); sp.textContent=it.tip; t.append(bb,sp); list.appendChild(t);
+      }else if(it.fig){
+        const fg=document.createElement('div'); fg.className='fig';
+        fg.innerHTML=circuloSVG()+'<div class="legend"><div><span class="dd">Rojo · derivar</span>: avanza en sentido horario.</div><div><span class="ii">Azul · integrar</span>: avanza en sentido antihorario.</div><div>Cada flecha es un paso. Al integrar se suma \\(+C\\).</div></div>';
+        list.appendChild(fg);
+      }
+    });
+    sec.appendChild(list); root.appendChild(sec);
+  });
+  return root;
+}
+function setOn(f,on){f.classList.toggle('on',on);f.setAttribute('aria-pressed',on?'true':'false');}
+
+function toggle(f){
+  const n=+f.dataset.n; if(hl.has(n)) hl.delete(n); else hl.add(n);
+  setOn(f,hl.has(n)); save(); refresh();
+}
+dbody.addEventListener('click',e=>{const f=e.target.closest('.f'); if(f) toggle(f);});
+dbody.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('f')){e.preventDefault();toggle(e.target);}
+});
+
+function copyTex(tex,btn){
+  const done=()=>{btn.textContent='✓';btn.classList.add('ok');setTimeout(()=>{btn.textContent='⧉';btn.classList.remove('ok');},1200);};
+  try{navigator.clipboard.writeText(tex).then(done,()=>fallback());}catch(e){fallback();}
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=tex; document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy'); done();}catch(e){} ta.remove();
+  }
+}
+
+function refresh(){
+  $('#stat').textContent=hl.size+(hl.size===1?' resaltada':' resaltadas');
+  if(!current) return;
+  dfoot.textContent='';
+  const mine=[]; for(let n=current.first;n<=current.last;n++) if(hl.has(n)) mine.push(n);
+  if(!mine.length){dfoot.textContent='Toca una fórmula para resaltarla. Los números identifican cada una.'; return;}
+  const lab=document.createElement('span'); lab.textContent='En uso:'; dfoot.appendChild(lab);
+  mine.forEach(n=>{
+    const p=document.createElement('button'); p.type='button'; p.className='pill'; p.textContent='#'+n; p.title='Ir a la fórmula '+n;
+    p.addEventListener('click',()=>{const el=document.getElementById('f'+n); if(el) el.scrollIntoView({block:'center'});});
+    dfoot.appendChild(p);
+  });
+  const clr=document.createElement('button'); clr.type='button'; clr.className='clr'; clr.textContent='quitar resaltado';
+  clr.addEventListener('click',()=>{mine.forEach(n=>hl.delete(n)); dbody.querySelectorAll('.f.on').forEach(f=>setOn(f,false)); save(); refresh();});
+  dfoot.appendChild(clr);
+}
+$('#clearAll').addEventListener('click',()=>{hl.clear(); save(); document.querySelectorAll('.f.on').forEach(f=>setOn(f,false)); refresh();});
+
+function typeset(el){
+  const go=()=>{ if(window.MathJax&&MathJax.typesetPromise) MathJax.startup.promise.then(()=>MathJax.typesetPromise([el])).catch(()=>{}); else setTimeout(go,120); };
+  go();
+}
+
+function openCard(g,c){
+  current=c; currentGroup=g;
+  dlg.className=g.cls;
+  const gl=$('#dglyph'); gl.textContent=g.glyph; gl.style.color='var(--c)';
+  $('#dtitle').textContent=c.t; $('#drange').textContent=g.name+' · fórmulas #'+c.first+' a #'+c.last;
+  djump.textContent='';
+  c.blocks.forEach(b=>{
+    const ch=document.createElement('button'); ch.type='button'; ch.className='chip'; ch.textContent=b.h;
+    ch.addEventListener('click',()=>{const el=document.getElementById(b.id); if(el) dbody.scrollTo({top:el.offsetTop-dbody.offsetTop,behavior:'smooth'});});
+    djump.appendChild(ch);
+  });
+  dbody.textContent='';
+  let frag=built.get(c.id);
+  if(!frag){frag=document.createElement('div'); frag.appendChild(buildCard(c)); built.set(c.id,frag); typeset(frag);}
+  else frag.querySelectorAll('.f').forEach(f=>setOn(f,hl.has(+f.dataset.n)));
+  dbody.appendChild(frag);
+  dbody.scrollTop=0;
+  refresh();
+  document.documentElement.style.overflow='hidden';
+  if(!dlg.open) dlg.showModal();
+}
+function closeDlg(){ if(dlg.open) dlg.close(); }
+dlg.addEventListener('close',()=>{document.documentElement.style.overflow='';current=null;});
+$('#dclose').addEventListener('click',closeDlg);
+dlg.addEventListener('mousedown',e=>{ if(e.target===dlg) closeDlg(); });
+
+/* jump chips: usar --c del grupo */
+dlg.addEventListener('toggle',()=>{});
+refresh();
+</script>

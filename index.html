@@ -1,0 +1,1889 @@
+<title>Hoja de Cálculo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Concepto: cuaderno cuadriculado. Home = tres ramas (d, ∫, ∇) en filas; cada tarjeta abre un modal casi a pantalla completa con fórmulas numeradas y resaltables. */
+:root{
+  --bg:#EDF2F5; --grid:#D7E3EA; --paper:#FBFDFE; --ink:#101C26; --muted:#4E5F6C; --line:#C6D4DD;
+  --d:#C23A22; --i:#1B4FBF; --v:#12794F; --hl:#FFE14D; --hl-ink:#2A2200; --hl-line:#C9A700;
+  --shadow:0 1px 0 rgba(16,28,38,.06),0 8px 24px -12px rgba(16,28,38,.25);
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E161C; --grid:#18262F; --paper:#15212A; --ink:#E6EEF3; --muted:#93A6B3; --line:#2A3B47;
+  --d:#FF7E66; --i:#86AAFF; --v:#52D0A0; --hl:#6A5800; --hl-ink:#FFF3B0; --hl-line:#E0BC00;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -12px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E161C; --grid:#18262F; --paper:#15212A; --ink:#E6EEF3; --muted:#93A6B3; --line:#2A3B47;
+  --d:#FF7E66; --i:#86AAFF; --v:#52D0A0; --hl:#6A5800; --hl-ink:#FFF3B0; --hl-line:#E0BC00;
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 10px 28px -12px rgba(0,0,0,.7); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px; color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-block:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1120px;margin:0 auto;padding-block:36px 64px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px;margin-bottom:32px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,8vw,76px);line-height:.95;letter-spacing:-.03em;margin:0}
+h1 small{display:block;font-family:var(--f-mono);font-weight:400;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.hint{max-width:34ch;color:var(--muted);margin:0;font-size:14px}
+.hint b{background:var(--hl);color:var(--hl-ink);padding:0 4px;font-weight:500}
+.status{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:center;margin-top:10px}
+.status button{font:inherit;color:var(--ink);background:none;border:1px solid var(--line);padding:2px 8px;cursor:pointer;border-radius:3px}
+.status button:hover{border-color:var(--ink)}
+
+.group{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px 28px;padding-block:26px;border-top:2px solid var(--ink)}
+.glabel{display:flex;flex-direction:column;gap:6px;align-self:start}
+.glyph{font-family:var(--f-display);font-weight:800;font-size:64px;line-height:1;color:var(--c)}
+.gname{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.g-d{--c:var(--d)} .g-i{--c:var(--i)} .g-v{--c:var(--v)} .g-a{--c:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{
+  text-align:left;font:inherit;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:4px;
+  padding:14px 14px 12px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:118px;box-shadow:var(--shadow);
+  transition:transform .15s,border-color .15s;min-width:0;
+}
+.card:hover{transform:translateY(-2px);border-color:var(--c)}
+.card:focus-visible,.f:focus-visible,.close:focus-visible,.chip:focus-visible,.cp:focus-visible{outline:3px solid var(--c,var(--ink));outline-offset:2px}
+.card .t{font-family:var(--f-display);font-weight:600;font-size:18px;line-height:1.15;letter-spacing:-.01em}
+.card .k{font-size:12.5px;color:var(--muted);flex:1}
+.card .m{font-family:var(--f-mono);font-size:11.5px;color:var(--c);display:flex;justify-content:space-between}
+
+/* modal */
+dialog{
+  border:0;padding:0;background:var(--paper);color:var(--ink);width:min(1180px,96vw);height:min(94vh,1000px);max-width:none;max-height:none;
+  border-radius:6px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6);overflow:hidden;
+}
+dialog[open]{display:flex;flex-direction:column;animation:pop .18s ease-out}
+dialog::backdrop{background:rgba(8,14,19,.62);backdrop-filter:blur(2px)}
+@keyframes pop{from{transform:translateY(14px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){dialog[open]{animation:none}.card{transition:none}}
+.mh{display:flex;align-items:center;gap:14px;padding:14px 18px 10px;border-bottom:1px solid var(--line);flex:none}
+.mh .glyph{font-size:40px}
+.mh h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:clamp(22px,3.4vw,32px);letter-spacing:-.02em;line-height:1.05}
+.mh .range{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.mh .sp{flex:1}
+.close{font:inherit;font-size:22px;line-height:1;width:40px;height:40px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer;border-radius:4px;flex:none}
+.close:hover{border-color:var(--ink)}
+.jump{display:flex;gap:8px;overflow-x:auto;padding:8px 18px;border-bottom:1px solid var(--line);flex:none}
+.chip{font:inherit;font-size:12.5px;white-space:nowrap;border:1px solid var(--line);background:none;color:var(--ink);padding:3px 10px;border-radius:99px;cursor:pointer}
+.chip:hover{border-color:var(--c);color:var(--c)}
+.mb{overflow-y:auto;padding:6px 18px 28px;flex:1;scroll-behavior:smooth;overscroll-behavior:contain}
+.blk{padding-top:22px;scroll-margin-top:4px}
+.blk h3{font-family:var(--f-mono);font-weight:500;font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--c);margin:0 0 10px;display:flex;gap:10px;align-items:center}
+.blk h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.fl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:8px}
+.f{
+  position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:center;
+  padding:10px 44px 10px 10px;border:1px solid var(--line);border-radius:4px;cursor:pointer;background:var(--paper);min-width:0;
+  user-select:none;-webkit-user-select:none;transition:background .1s,border-color .1s;
+}
+.f.w{grid-column:1/-1}
+.f:hover{border-color:var(--muted)}
+.f .n{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);align-self:start;padding-top:2px;min-width:2.4ch;text-align:right}
+.f .x{overflow-x:auto;overflow-y:hidden;min-width:0;padding-block:2px}
+.f .note{grid-column:2;font-size:12.5px;color:var(--muted);line-height:1.4}
+.f.on{background:var(--hl);color:var(--hl-ink);border-color:var(--hl-line);box-shadow:0 0 0 2px var(--hl-line)}
+.f.on .n,.f.on .note{color:var(--hl-ink)}
+.f.on .n{font-weight:500}
+.cp{position:absolute;top:6px;right:6px;font:inherit;font-size:13px;width:28px;height:28px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer;border-radius:3px;opacity:.55}
+.f:hover .cp,.cp:focus-visible{opacity:1}
+.cp:hover{border-color:currentColor}
+.cp.ok{color:var(--v);opacity:1}
+.f.on .cp{color:var(--hl-ink)}
+.tip{grid-column:1/-1;border:1px dashed var(--c);border-radius:4px;padding:10px 14px;font-size:14px;display:flex;gap:12px;align-items:baseline}
+.tip b{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;color:var(--c);flex:none}
+.tip span{min-width:0}
+.fig{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:14px}
+.fig svg{width:100%;height:auto;display:block}
+.fig .legend{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.legend .dd{color:var(--d);font-weight:600}.legend .ii{color:var(--i);font-weight:600}
+.mf{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 18px;border-top:1px solid var(--line);font-family:var(--f-mono);font-size:12px;color:var(--muted);min-height:46px}
+.mf .pill{background:var(--hl);color:var(--hl-ink);padding:1px 8px;border-radius:99px;border:1px solid var(--hl-line);cursor:pointer;font:inherit}
+.mf .clr{margin-left:auto;font:inherit;border:1px solid var(--line);background:none;color:var(--ink);padding:3px 10px;border-radius:3px;cursor:pointer}
+.mf .clr:hover{border-color:var(--ink)}
+mjx-container{max-width:100%}
+mjx-container svg{max-width:none}
+@media (max-width:720px){
+  .group{grid-template-columns:1fr}
+  .glabel{flex-direction:row;align-items:baseline;gap:14px}
+  .glyph{font-size:44px}
+  .fig{grid-template-columns:1fr}
+  dialog{width:100vw;height:100dvh;border-radius:0}
+  .mh,.jump,.mb,.mf{padding-left:14px;padding-right:14px}
+}
+
+/* calculadora OLED minimalista */
+.calcbtn{display:inline-flex;align-items:center;gap:10px;margin-top:14px;font:inherit;background:#000;color:#fff;border:1px solid #fff;border-radius:4px;padding:9px 16px;cursor:pointer}
+.calcbtn:hover{box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.calcbtn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.calcbtn .cg{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1}
+.calcbtn b{font-family:var(--f-display);font-size:16px;font-weight:600}
+#calc{background:#000;color:#fff;border:1px solid #222;width:min(860px,96vw);height:min(94vh,960px)}
+#calc::backdrop{background:rgba(0,0,0,.88)}
+#calc *{color:inherit}
+#calc .mh{border-bottom:0;padding:14px 18px 0;gap:10px}
+#calc .glyph{font-size:26px;color:#fff}
+#calc .mh h2{font-size:20px;font-weight:600;letter-spacing:0}
+#calc .close{border-color:#2a2a2a;width:36px;height:36px;font-size:20px}#calc .close:hover{border-color:#fff}
+.cbody{flex:1;overflow-y:auto;padding:8px 18px 28px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.tabs{display:flex;gap:2px;overflow-x:auto;flex:none;border-bottom:1px solid #1e1e1e}
+.tab{font:inherit;font-size:14px;white-space:nowrap;background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;cursor:pointer;color:rgba(255,255,255,.55)}
+.tab:hover{color:#fff}
+.tab[aria-selected="true"]{color:#fff;border-bottom-color:#fff}
+.tab:focus-visible,.exchip:focus-visible,.go:focus-visible,.cc:focus-visible,.key:focus-visible,#calc .close:focus-visible,.kt:focus-visible,.fi:focus-visible,.aci:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.exrow{display:flex;flex-wrap:wrap;gap:6px}
+.exchip{font:inherit;font-size:12.5px;background:none;border:1px solid #2a2a2a;border-radius:99px;padding:2px 11px;cursor:pointer;color:rgba(255,255,255,.75)}
+.exchip:hover{border-color:#fff;color:#fff}
+.calcgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.calcgrid.kp{grid-template-columns:minmax(0,1fr) minmax(280px,380px)}
+.cleft{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cfields{display:flex;flex-direction:column;gap:14px}
+.fb{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fl{font-size:12.5px;color:rgba(255,255,255,.6)}
+.fl small{display:none}
+.fw{position:relative}
+.fi{font-family:var(--f-mono);font-size:17px;background:transparent;color:#fff;border:0;border-bottom:1px solid #3a3a3a;border-radius:0;padding:8px 2px;width:100%;min-width:0;caret-color:#fff}
+.fi:focus{outline:none;border-bottom:2px solid #fff;padding-bottom:7px}
+.fi::placeholder{color:rgba(255,255,255,.25)}
+.pv{min-height:44px;display:flex;align-items:center;padding:4px 2px;font-size:21px;overflow-x:auto;overflow-y:hidden}
+.st{font-family:var(--f-mono);font-size:11.5px;min-height:0}
+.st:empty{display:none}
+.ac{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:#0a0a0a;border:1px solid #444;border-radius:6px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.8)}
+.ac[hidden]{display:none}
+.aci{display:flex;gap:12px;align-items:baseline;padding:7px 12px;cursor:pointer}
+.aci b{font-family:var(--f-mono);font-size:14px;font-weight:500;min-width:7.5ch}
+.aci span{font-size:12px;color:rgba(255,255,255,.55)}
+.aci.sel{background:#1e1e1e}
+.aci kbd{margin-left:auto;font-family:var(--f-mono);font-size:10px;border:1px solid #444;border-radius:3px;padding:0 5px;color:rgba(255,255,255,.7)}
+.gorow{display:flex;gap:8px;align-items:center}
+.go{font:inherit;font-weight:600;font-size:16px;background:#fff;color:#000;border:0;border-radius:6px;padding:9px 28px;cursor:pointer}
+#calc .go{color:#000}
+.go:hover{background:#ddd}
+.kt{font:inherit;font-size:18px;line-height:1;background:none;border:1px solid #2a2a2a;border-radius:6px;padding:8px 12px;cursor:pointer}
+.kt:hover,.kt[aria-pressed="true"]{border-color:#fff}
+.ckeys{display:none;grid-template-columns:repeat(6,1fr);gap:5px;position:sticky;top:0;user-select:none;-webkit-user-select:none}
+.kp .ckeys{display:grid}
+.key{font:inherit;font-size:15px;min-height:42px;background:#0e0e0e;border:0;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 2px;line-height:1;touch-action:manipulation}
+.key:hover{background:#1c1c1c}
+.key:active{background:#2a2a2a}
+.key.fn{font-size:13.5px;color:rgba(255,255,255,.85)}
+.key.num{background:#161616;font-size:18px}
+.key.op{background:#121212}
+.key.del{background:#1a1111}
+.key.eq{background:#fff;color:#000;font-weight:600}
+#calc .key.eq{color:#000}
+.cout{display:flex;flex-direction:column;gap:6px}
+.res{border-top:1px solid #1e1e1e;padding:10px 0 4px;display:flex;flex-direction:column;gap:2px}
+.rrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center}
+.tag{font-family:var(--f-mono);font-size:11px;color:rgba(255,255,255,.5)}
+.rm{overflow-x:auto;overflow-y:hidden;padding-block:3px;font-size:17px}
+.cc{font:inherit;font-size:13px;width:28px;height:28px;border:1px solid transparent;background:none;border-radius:3px;cursor:pointer;opacity:.35}
+.rrow:hover .cc,.cc:focus-visible{opacity:1}
+.cc:hover{border-color:#fff}
+.sepl{padding-top:10px;border-top:1px solid #444;font-size:16px}
+.cerr{border:1px solid #fff;border-radius:6px;padding:10px 14px;font-size:14px}
+.cwait{font-family:var(--f-mono);font-size:13px;color:rgba(255,255,255,.6)}
+@media (max-width:860px){.calcgrid.kp{grid-template-columns:1fr}.ckeys{position:static}}
+@media (max-width:720px){#calc{width:100vw;height:100dvh;border-radius:0;border:0}.cbody{padding-inline:14px}#calc .mh{padding-inline:14px}.rrow{grid-template-columns:28px minmax(0,1fr) auto}.fi{font-size:16px}.key{min-height:46px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><small>Hoja de fórmulas · Cálculo</small>Cálculo<br>diferencial, integral<br>y vectorial</h1>
+    </div>
+    <div>
+      <p class="hint">Abre un tema. Dentro, toca una fórmula para <b>resaltarla</b> y saber cuál estás usando. Tocar de nuevo la quita.</p>
+      <button class="calcbtn" id="openCalc" type="button"><span class="cg">∑</span><b>Calculadora</b></button>
+      <div class="status"><span id="stat">0 resaltadas</span><button id="clearAll" type="button">limpiar todo</button></div>
+    </div>
+  </header>
+  <main id="home"></main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dtitle">
+  <div class="mh"><span class="glyph" id="dglyph"></span>
+    <div><h2 id="dtitle"></h2><div class="range" id="drange"></div></div>
+    <span class="sp"></span>
+    <button class="close" id="dclose" type="button" aria-label="Cerrar">×</button></div>
+  <nav class="jump" id="djump" aria-label="Secciones"></nav>
+  <div class="mb" id="dbody"></div>
+  <div class="mf" id="dfoot"></div>
+</dialog>
+
+
+<dialog id="calc" aria-label="Calculadora vectorial">
+  <div class="mh"><span class="glyph">∑</span><h2 id="ctitle">Calculadora</h2><span class="sp"></span>
+    <button class="close" id="cclose" type="button" aria-label="Cerrar">×</button></div>
+  <div class="cbody" id="cbody">
+    <div class="tabs" role="tablist" id="ctabs"></div>
+    <div class="exrow" id="cex"></div>
+    <div class="calcgrid" id="cgrid">
+      <div class="cleft">
+        <div class="cfields" id="cfields"></div>
+        <div class="gorow">
+          <button class="go" id="cgo" type="button">Calcular</button>
+          <button class="kt" id="ckt" type="button" aria-pressed="false" aria-label="Teclado en pantalla" title="Teclado en pantalla">⌨</button>
+        </div>
+        <div class="cout" id="cout" aria-live="polite"></div>
+      </div>
+      <div class="ckeys" id="ckeys"></div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],
+    macros:{
+      sen:'\\operatorname{sen}', senh:'\\operatorname{senh}', arcsen:'\\operatorname{arcsen}',
+      arccos:'\\operatorname{arccos}', arctan:'\\operatorname{arctan}', arccot:'\\operatorname{arccot}',
+      arcsec:'\\operatorname{arcsec}', arccsc:'\\operatorname{arccsc}', sgn:'\\operatorname{sgn}',
+      iint:'\\int\\!\\!\\int', iiint:'\\int\\!\\!\\!\\int\\!\\!\\!\\int',
+      oiint:'\\unicode{x222F}', rot:'\\operatorname{rot}', divg:'\\operatorname{div}',
+      proj:'\\operatorname{proj}', R:'\\mathbb{R}'
+    }},
+  svg:{fontCache:'local'},
+  startup:{typeset:false}
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js" defer></script>
+
+<script>
+const r = String.raw;
+/* ---------- DATOS ----------
+   item: [tex, nota?, 'w'?]  ·  {tip:'texto'}  ·  {fig:'circulo'}  */
+const GROUPS = [
+{id:'d', cls:'g-d', glyph:'d/dx', name:'Diferencial', cards:[
+ {id:'lim', t:'Límites', k:'Notables, L\'Hôpital, indeterminadas, continuidad', blocks:[
+  {h:'Definición y propiedades', items:[
+   [r`\lim_{x\to a}f(x)=L \iff \forall\varepsilon>0\ \exists\delta>0:\ 0<|x-a|<\delta\Rightarrow|f(x)-L|<\varepsilon`,'Definición ε–δ','w'],
+   [r`\lim_{x\to a}(u\pm v)=\lim_{x\to a}u\pm\lim_{x\to a}v`],
+   [r`\lim_{x\to a}(u\cdot v)=\lim_{x\to a}u\cdot\lim_{x\to a}v`],
+   [r`\lim_{x\to a}\frac{u}{v}=\frac{\lim u}{\lim v}`,'Si \\(\\lim v\\neq0\\)'],
+   [r`\lim_{x\to a}f(x)=f(a)`,'Continuidad en \\(a\\)'],
+   [r`g(x)\le f(x)\le h(x),\ \lim g=\lim h=L\Rightarrow\lim f=L`,'Teorema del sándwich'],
+   [r`\lim_{x\to a}f(x)=L\iff\lim_{x\to a^-}f(x)=\lim_{x\to a^+}f(x)=L`,'Límites laterales']]},
+  {h:'Límites notables', items:[
+   [r`\lim_{x\to0}\frac{\sen x}{x}=1`],
+   [r`\lim_{x\to0}\frac{\tan x}{x}=1`],
+   [r`\lim_{x\to0}\frac{1-\cos x}{x}=0`],
+   [r`\lim_{x\to0}\frac{1-\cos x}{x^2}=\frac12`],
+   [r`\lim_{x\to0}\frac{\arcsen x}{x}=1`],
+   [r`\lim_{x\to0}\frac{\arctan x}{x}=1`],
+   [r`\lim_{x\to0}\frac{e^x-1}{x}=1`],
+   [r`\lim_{x\to0}\frac{a^x-1}{x}=\ln a`],
+   [r`\lim_{x\to0}\frac{\ln(1+x)}{x}=1`],
+   [r`\lim_{x\to0}(1+x)^{1/x}=e`],
+   [r`\lim_{x\to\infty}\Big(1+\frac1x\Big)^{x}=e`],
+   [r`\lim_{x\to\infty}\Big(1+\frac kx\Big)^{x}=e^{k}`],
+   [r`\lim_{x\to\infty}\frac{\ln x}{x^p}=0\quad(p>0)`],
+   [r`\lim_{x\to\infty}\frac{x^n}{e^x}=0`]]},
+  {h:'L\'Hôpital e indeterminadas', items:[
+   [r`\lim_{x\to a}\frac{f(x)}{g(x)}=\lim_{x\to a}\frac{f'(x)}{g'(x)}`,'Solo si da \\(\\tfrac00\\) o \\(\\tfrac\\infty\\infty\\)'],
+   [r`0\cdot\infty:\ \ f\,g=\frac{f}{1/g}`,'Pasar a cociente'],
+   [r`\infty-\infty:\ \ \text{común denominador o racionalizar}`],
+   [r`1^\infty,\ 0^0,\ \infty^0:\ \ \lim f^{g}=e^{\lim g\ln f}`,'Tomar logaritmo'],
+   {tip:'Límite en \\(\\infty\\) de un cociente de polinomios: grado numerador < denominador → 0; iguales → cociente de coeficientes principales; mayor → \\(\\pm\\infty\\).'},
+   [r`\lim_{x\to\infty}\frac{a_nx^n+\cdots}{b_mx^m+\cdots}=\begin{cases}0&n<m\\ a_n/b_m&n=m\\ \pm\infty&n>m\end{cases}`,'','w']]}
+ ]},
+ {id:'der', t:'Derivadas básicas', k:'Potencias, exponencial, log, trigonométricas', blocks:[
+  {h:'Algebraicas', items:[
+   [r`\frac{d}{dx}(c)=0`],[r`\frac{d}{dx}(x)=1`],
+   [r`\frac{d}{dx}(x^n)=n\,x^{n-1}`],
+   [r`\frac{d}{dx}\sqrt{x}=\frac{1}{2\sqrt{x}}`],
+   [r`\frac{d}{dx}\Big(\frac1x\Big)=-\frac1{x^2}`],
+   [r`\frac{d}{dx}\sqrt[n]{x}=\frac{1}{n\,x^{(n-1)/n}}`]]},
+  {h:'Exponenciales y logaritmos', items:[
+   [r`\frac{d}{dx}e^{x}=e^{x}`],
+   [r`\frac{d}{dx}a^{x}=a^{x}\ln a`],
+   [r`\frac{d}{dx}\ln x=\frac1x`],
+   [r`\frac{d}{dx}\ln|x|=\frac1x`],
+   [r`\frac{d}{dx}\log_a x=\frac{1}{x\ln a}`],
+   [r`\frac{d}{dx}x^{x}=x^{x}(\ln x+1)`,'Derivación logarítmica']]},
+  {h:'Trigonométricas', items:[
+   [r`\frac{d}{dx}\sen x=\cos x`],
+   [r`\frac{d}{dx}\cos x=-\sen x`],
+   [r`\frac{d}{dx}\tan x=\sec^2x`],
+   [r`\frac{d}{dx}\cot x=-\csc^2x`],
+   [r`\frac{d}{dx}\sec x=\sec x\tan x`],
+   [r`\frac{d}{dx}\csc x=-\csc x\cot x`],
+   {tip:'Toda función que empieza con «co» (cos, cot, csc) deriva con signo menos.'}]}
+ ]},
+ {id:'inv', t:'Inversas e hiperbólicas', k:'arcsen, arctan, senh, cosh…', blocks:[
+  {h:'Trigonométricas inversas', items:[
+   [r`\frac{d}{dx}\arcsen x=\frac{1}{\sqrt{1-x^2}}`],
+   [r`\frac{d}{dx}\arccos x=-\frac{1}{\sqrt{1-x^2}}`],
+   [r`\frac{d}{dx}\arctan x=\frac{1}{1+x^2}`],
+   [r`\frac{d}{dx}\arccot x=-\frac{1}{1+x^2}`],
+   [r`\frac{d}{dx}\arcsec x=\frac{1}{|x|\sqrt{x^2-1}}`],
+   [r`\frac{d}{dx}\arccsc x=-\frac{1}{|x|\sqrt{x^2-1}}`]]},
+  {h:'Hiperbólicas', items:[
+   [r`\senh x=\frac{e^x-e^{-x}}{2},\qquad\cosh x=\frac{e^x+e^{-x}}{2}`,'Definición','w'],
+   [r`\cosh^2x-\senh^2x=1`],
+   [r`\frac{d}{dx}\senh x=\cosh x`],
+   [r`\frac{d}{dx}\cosh x=\senh x`],
+   [r`\frac{d}{dx}\tanh x=\operatorname{sech}^2x`],
+   [r`\frac{d}{dx}\operatorname{sech}x=-\operatorname{sech}x\tanh x`]]},
+  {h:'Hiperbólicas inversas', items:[
+   [r`\frac{d}{dx}\operatorname{arcsenh}x=\frac{1}{\sqrt{x^2+1}}`],
+   [r`\frac{d}{dx}\operatorname{arccosh}x=\frac{1}{\sqrt{x^2-1}}`],
+   [r`\frac{d}{dx}\operatorname{arctanh}x=\frac{1}{1-x^2}`],
+   [r`\operatorname{arcsenh}x=\ln\big(x+\sqrt{x^2+1}\big)`]]}
+ ]},
+ {id:'reg', t:'Reglas de derivación', k:'Producto, cociente, cadena, implícita, paramétrica', blocks:[
+  {h:'Reglas básicas', items:[
+   [r`\frac{d}{dx}(c\,u)=c\,\frac{du}{dx}`,'Constante'],
+   [r`\frac{d}{dx}(u\pm v)=\frac{du}{dx}\pm\frac{dv}{dx}`,'Suma y resta'],
+   [r`\frac{d}{dx}(u\cdot v)=u\,\frac{dv}{dx}+v\,\frac{du}{dx}`,'Producto'],
+   [r`\frac{d}{dx}\Big(\frac uv\Big)=\frac{v\,\dfrac{du}{dx}-u\,\dfrac{dv}{dx}}{v^2}`,'Cociente'],
+   [r`\frac{d}{dx}(u\,v\,w)=u'vw+uv'w+uvw'`,'Producto de tres'],
+   [r`\frac{d}{dx}\,u^{n}=n\,u^{n-1}\,\frac{du}{dx}`,'Potencia generalizada'],
+   [r`\frac{dy}{dx}=\frac{dy}{du}\cdot\frac{du}{dx}`,'Regla de la cadena, \\(y=y(u),\\ u=u(x)\\)'],
+   [r`\frac{d}{dx}\,y\big(u(x)\big)=y'(u)\cdot u'(x)`,'Cadena, forma función']]},
+  {h:'Cadena aplicada (u = u(x))', items:[
+   [r`\frac{d}{dx}e^{u}=e^{u}\,\frac{du}{dx}`],[r`\frac{d}{dx}a^{u}=a^{u}\ln a\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\ln u=\frac{1}{u}\,\frac{du}{dx}`],[r`\frac{d}{dx}\sen u=\cos u\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\cos u=-\sen u\,\frac{du}{dx}`],[r`\frac{d}{dx}\tan u=\sec^2u\,\frac{du}{dx}`],
+   [r`\frac{d}{dx}\arctan u=\frac{1}{1+u^2}\,\frac{du}{dx}`],[r`\frac{d}{dx}\arcsen u=\frac{1}{\sqrt{1-u^2}}\,\frac{du}{dx}`]]},
+  {h:'Casos especiales', items:[
+   [r`\frac{dy}{dx}=-\frac{F_x}{F_y}`,'Implícita \\(F(x,y)=0\\)'],
+   [r`y=u^{v}\Rightarrow\frac{dy}{dx}=u^{v}\Big(\frac{dv}{dx}\ln u+\frac{v}{u}\frac{du}{dx}\Big)`,'Derivación logarítmica','w'],
+   [r`\frac{dx}{dy}=\frac{1}{\,dy/dx\,}`,'Función inversa'],
+   [r`\frac{dy}{dx}=\frac{dy/dt}{dx/dt}`,'Paramétrica'],
+   [r`\frac{d^2y}{dx^2}=\frac{\frac{d}{dt}\big(\frac{dy}{dx}\big)}{dx/dt}`,'Segunda derivada paramétrica'],
+   [r`\frac{d^n}{dx^n}(u\,v)=\sum_{k=0}^{n}\binom nk\,\frac{d^{k}u}{dx^{k}}\,\frac{d^{\,n-k}v}{dx^{\,n-k}}`,'Leibniz (derivada n-ésima de un producto)','w']]}
+ ]},
+ {id:'apl', t:'Aplicaciones', k:'Tangente, extremos, optimización, Newton', blocks:[
+  {h:'Rectas y linealización', items:[
+   [r`y-f(x_0)=f'(x_0)(x-x_0)`,'Recta tangente'],
+   [r`y-f(x_0)=-\frac{1}{f'(x_0)}(x-x_0)`,'Recta normal'],
+   [r`L(x)=f(a)+f'(a)(x-a)`,'Linealización'],
+   [r`dy=f'(x)\,dx`,'Diferencial'],
+   [r`x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}`,'Método de Newton']]},
+  {h:'Extremos y forma de la curva', items:[
+   [r`f'(c)=0\ \text{ o }\ \nexists f'(c)`,'Puntos críticos'],
+   [r`f'>0\Rightarrow\text{crece},\qquad f'<0\Rightarrow\text{decrece}`],
+   [r`f''>0\Rightarrow\text{cóncava hacia arriba},\quad f''<0\Rightarrow\text{hacia abajo}`],
+   [r`f'(c)=0,\ f''(c)>0\Rightarrow\text{mínimo local}`],
+   [r`f'(c)=0,\ f''(c)<0\Rightarrow\text{máximo local}`],
+   [r`f''(c)=0\ \text{y cambia de signo}\Rightarrow\text{punto de inflexión}`]]},
+  {h:'Teoremas', items:[
+   [r`f'(c)=\frac{f(b)-f(a)}{b-a}`,'Valor medio (Lagrange)'],
+   [r`f(a)=f(b)\Rightarrow\exists c:\ f'(c)=0`,'Rolle'],
+   [r`\kappa=\frac{|f''(x)|}{\big(1+f'(x)^2\big)^{3/2}}`,'Curvatura'],
+   {tip:'Optimización: escribe la cantidad a optimizar, elimina variables con la restricción, deriva, iguala a 0 y comprueba con \\(f\'\'\\) o en los extremos del intervalo.'},
+   {tip:'Razones relacionadas: relaciona las variables con una ecuación, deriva ambos lados respecto a \\(t\\) y sustituye los valores en el instante pedido.'}]}
+ ]},
+ {id:'tay', t:'Series y Taylor', k:'Maclaurin, convergencia, residuo', blocks:[
+  {h:'Taylor', items:[
+   [r`f(x)=\sum_{n=0}^{\infty}\frac{f^{(n)}(a)}{n!}(x-a)^n`,'Serie de Taylor en \\(a\\)'],
+   [r`f(x)=\sum_{n=0}^{\infty}\frac{f^{(n)}(0)}{n!}x^n`,'Maclaurin'],
+   [r`R_n(x)=\frac{f^{(n+1)}(c)}{(n+1)!}(x-a)^{n+1}`,'Residuo de Lagrange']]},
+  {h:'Series de Maclaurin notables', items:[
+   [r`e^x=\sum_{n=0}^{\infty}\frac{x^n}{n!}`,'Para todo \\(x\\)'],
+   [r`\sen x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n+1}}{(2n+1)!}`,'Para todo \\(x\\)'],
+   [r`\cos x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n}}{(2n)!}`,'Para todo \\(x\\)'],
+   [r`\frac1{1-x}=\sum_{n=0}^{\infty}x^n`,'\\(|x|<1\\)'],
+   [r`\ln(1+x)=\sum_{n=1}^{\infty}\frac{(-1)^{n+1}x^n}{n}`,'\\(-1<x\\le1\\)'],
+   [r`\arctan x=\sum_{n=0}^{\infty}\frac{(-1)^n x^{2n+1}}{2n+1}`,'\\(|x|\le1\\)'],
+   [r`(1+x)^k=\sum_{n=0}^{\infty}\binom kn x^n`,'Binomial, \\(|x|<1\\)'],
+   [r`\senh x=\sum_{n=0}^{\infty}\frac{x^{2n+1}}{(2n+1)!},\quad\cosh x=\sum_{n=0}^{\infty}\frac{x^{2n}}{(2n)!}`,'','w']]},
+  {h:'Convergencia de series', items:[
+   [r`\sum_{n=0}^{\infty}ar^n=\frac{a}{1-r}`,'Geométrica, \\(|r|<1\\)'],
+   [r`\sum\frac1{n^p}\ \text{converge}\iff p>1`,'Serie p'],
+   [r`L=\lim_{n\to\infty}\left|\frac{a_{n+1}}{a_n}\right|`,'Razón: \\(L<1\\) converge, \\(L>1\\) diverge'],
+   [r`L=\lim_{n\to\infty}\sqrt[n]{|a_n|}`,'Raíz: igual criterio'],
+   [r`a_n\downarrow0\Rightarrow\sum(-1)^na_n\ \text{converge}`,'Series alternantes (Leibniz)'],
+   [r`R=\lim_{n\to\infty}\left|\frac{a_n}{a_{n+1}}\right|`,'Radio de convergencia'],
+   [r`\lim a_n\neq0\Rightarrow\sum a_n\ \text{diverge}`,'Criterio del término n-ésimo']]}
+ ]}
+]},
+
+{id:'i', cls:'g-i', glyph:'∫', name:'Integral', cards:[
+ {id:'circ', t:'Círculo sen / cos', k:'Ciclo de derivación e integración, tips', blocks:[
+  {h:'El círculo', items:[
+   {fig:'circulo'},
+   [r`\sen x\ \xrightarrow{\ d/dx\ }\ \cos x\ \xrightarrow{\ d/dx\ }\ -\sen x\ \xrightarrow{\ d/dx\ }\ -\cos x\ \xrightarrow{\ d/dx\ }\ \sen x`,'Derivar: sentido horario','w'],
+   [r`\sen x\ \xrightarrow{\ \int\ }\ -\cos x\ \xrightarrow{\ \int\ }\ -\sen x\ \xrightarrow{\ \int\ }\ \cos x\ \xrightarrow{\ \int\ }\ \sen x`,'Integrar: sentido antihorario (sin la constante \\(C\\))','w'],
+   {tip:'Derivar = avanzar un paso horario. Integrar = un paso antihorario. Cuatro pasos regresan al punto de partida.'}]},
+  {h:'Derivadas sucesivas', items:[
+   [r`\frac{d^n}{dx^n}\sen x=\sen\!\Big(x+\frac{n\pi}{2}\Big)`],
+   [r`\frac{d^n}{dx^n}\cos x=\cos\!\Big(x+\frac{n\pi}{2}\Big)`],
+   [r`\frac{d^{4}}{dx^{4}}\sen x=\sen x`,'Periodo 4: usa \\(n\\bmod 4\\)'],
+   [r`\frac{d^n}{dx^n}e^{ax}=a^n e^{ax}`],
+   [r`\frac{d^n}{dx^n}x^m=\frac{m!}{(m-n)!}x^{m-n}`],
+   [r`\frac{d^n}{dx^n}\ln x=\frac{(-1)^{n-1}(n-1)!}{x^n}`]]},
+  {h:'Más trucos de memoria', items:[
+   [r`\int\sen x\,dx=-\cos x+C`,'Integral de seno lleva signo menos'],
+   [r`\int\cos x\,dx=\sen x+C`,'Integral de coseno es positiva'],
+   [r`\int e^{x}dx=e^{x}+C`,'La única que se queda igual al derivar e integrar'],
+   {tip:'Pares «co»: la derivada de cada función «co» lleva menos (cos, cot, csc, arccos, arccot, arccsc). Las inversas «co» comparten el resultado con su pareja, con signo opuesto.'},
+   {tip:'Tangente y secante: \\((\\tan)\'=\\sec^2\\) y \\((\\sec)\'=\\sec\\tan\\). Al integrar, \\(\\int\\sec^2=\\tan\\) y \\(\\int\\sec\\tan=\\sec\\).'},
+   {tip:'Partes con ciclo \\(e^{ax}\\sen bx\\): integra por partes dos veces; aparece la integral original, la pasas al otro lado y despejas.'}]}
+ ]},
+ {id:'inm', t:'Integrales inmediatas', k:'Tabla básica, inversas trigonométricas, raíces', blocks:[
+  {h:'Básicas', items:[
+   [r`\int x^n\,dx=\frac{x^{n+1}}{n+1}+C`,'\\(n\\neq-1\\)'],
+   [r`\int\frac{dx}{x}=\ln|x|+C`],
+   [r`\int e^{x}dx=e^{x}+C`],
+   [r`\int a^{x}dx=\frac{a^{x}}{\ln a}+C`],
+   [r`\int e^{ax}dx=\frac{e^{ax}}{a}+C`],
+   [r`\int f(ax+b)\,dx=\frac1a F(ax+b)+C`,'Cambio lineal'],
+   [r`\int\frac{f'(x)}{f(x)}dx=\ln|f(x)|+C`],
+   [r`\int f'(x)f(x)^n\,dx=\frac{f(x)^{n+1}}{n+1}+C`],
+   [r`\int\ln x\,dx=x\ln x-x+C`],
+   [r`\int\log_a x\,dx=\frac{x\ln x-x}{\ln a}+C`]]},
+  {h:'Trigonométricas', items:[
+   [r`\int\sen x\,dx=-\cos x+C`],
+   [r`\int\cos x\,dx=\sen x+C`],
+   [r`\int\tan x\,dx=-\ln|\cos x|+C=\ln|\sec x|+C`],
+   [r`\int\cot x\,dx=\ln|\sen x|+C`],
+   [r`\int\sec x\,dx=\ln|\sec x+\tan x|+C`],
+   [r`\int\csc x\,dx=-\ln|\csc x+\cot x|+C`],
+   [r`\int\sec^2x\,dx=\tan x+C`],
+   [r`\int\csc^2x\,dx=-\cot x+C`],
+   [r`\int\sec x\tan x\,dx=\sec x+C`],
+   [r`\int\csc x\cot x\,dx=-\csc x+C`],
+   [r`\int\senh x\,dx=\cosh x+C`],
+   [r`\int\cosh x\,dx=\senh x+C`]]},
+  {h:'Formas con a² ± x²', items:[
+   [r`\int\frac{dx}{x^2+a^2}=\frac1a\arctan\frac xa+C`],
+   [r`\int\frac{dx}{\sqrt{a^2-x^2}}=\arcsen\frac xa+C`],
+   [r`\int\frac{dx}{x^2-a^2}=\frac1{2a}\ln\left|\frac{x-a}{x+a}\right|+C`],
+   [r`\int\frac{dx}{a^2-x^2}=\frac1{2a}\ln\left|\frac{a+x}{a-x}\right|+C`],
+   [r`\int\frac{dx}{\sqrt{x^2\pm a^2}}=\ln\left|x+\sqrt{x^2\pm a^2}\right|+C`],
+   [r`\int\frac{dx}{x\sqrt{x^2-a^2}}=\frac1a\arcsec\frac{|x|}{a}+C`],
+   [r`\int\sqrt{a^2-x^2}\,dx=\frac x2\sqrt{a^2-x^2}+\frac{a^2}{2}\arcsen\frac xa+C`],
+   [r`\int\sqrt{x^2\pm a^2}\,dx=\frac x2\sqrt{x^2\pm a^2}\pm\frac{a^2}{2}\ln\left|x+\sqrt{x^2\pm a^2}\right|+C`]]}
+ ]},
+ {id:'tec', t:'Técnicas de integración', k:'Sustitución, partes, trig-sub, fracciones parciales', blocks:[
+  {h:'Sustitución y partes', items:[
+   [r`\int f(g(x))\,g'(x)\,dx=\int f(u)\,du,\quad u=g(x)`,'Sustitución'],
+   [r`\int u\,dv=uv-\int v\,du`,'Integración por partes'],
+   [r`\int_a^b u\,dv=\Big[uv\Big]_a^b-\int_a^b v\,du`,'Partes definida'],
+   {tip:'LIATE para elegir \\(u\\): Logarítmica, Inversa trig, Algebraica, Trigonométrica, Exponencial. La primera que aparezca es \\(u\\).'},
+   {tip:'Partes tabular: columna de derivadas de \\(u\\) hasta 0 y de integrales de \\(dv\\); multiplica en diagonal alternando signos \\(+,-,+,\\dots\\)'},
+   [r`\int e^{ax}\sen bx\,dx=\frac{e^{ax}}{a^2+b^2}\big(a\sen bx-b\cos bx\big)+C`,'Partes cíclica','w'],
+   [r`\int e^{ax}\cos bx\,dx=\frac{e^{ax}}{a^2+b^2}\big(a\cos bx+b\sen bx\big)+C`,'Partes cíclica','w'],
+   [r`\int x^n e^{ax}dx=\frac{x^n e^{ax}}{a}-\frac na\int x^{n-1}e^{ax}dx`,'Reducción'],
+   [r`\int x\ln x\,dx=\frac{x^2}{2}\ln x-\frac{x^2}{4}+C`]]},
+  {h:'Sustitución trigonométrica', items:[
+   [r`\sqrt{a^2-x^2}:\quad x=a\sen\theta,\ \ dx=a\cos\theta\,d\theta,\ \ \sqrt{\ }=a\cos\theta`,'','w'],
+   [r`\sqrt{a^2+x^2}:\quad x=a\tan\theta,\ \ dx=a\sec^2\theta\,d\theta,\ \ \sqrt{\ }=a\sec\theta`,'','w'],
+   [r`\sqrt{x^2-a^2}:\quad x=a\sec\theta,\ \ dx=a\sec\theta\tan\theta\,d\theta,\ \ \sqrt{\ }=a\tan\theta`,'','w'],
+   [r`t=\tan\frac x2:\ \sen x=\frac{2t}{1+t^2},\ \cos x=\frac{1-t^2}{1+t^2},\ dx=\frac{2\,dt}{1+t^2}`,'Weierstrass (funciones racionales de sen y cos)','w']]},
+  {h:'Fracciones parciales', items:[
+   [r`\frac{P(x)}{(x-a)(x-b)}=\frac{A}{x-a}+\frac{B}{x-b}`,'Factores lineales distintos'],
+   [r`\frac{P(x)}{(x-a)^2}=\frac{A}{x-a}+\frac{B}{(x-a)^2}`,'Factor lineal repetido'],
+   [r`\frac{P(x)}{x^2+bx+c}=\frac{Ax+B}{x^2+bx+c}`,'Cuadrático irreducible'],
+   [r`x^2+bx+c=\Big(x+\frac b2\Big)^2+c-\frac{b^2}{4}`,'Completar el cuadrado'],
+   {tip:'Si el grado del numerador es mayor o igual al del denominador, haz primero la división de polinomios.'}]}
+ ]},
+ {id:'itr', t:'Integrales trigonométricas', k:'Potencias, productos, reducción, Wallis', blocks:[
+  {h:'Potencias', items:[
+   [r`\int\sen^2x\,dx=\frac x2-\frac{\sen2x}{4}+C`],
+   [r`\int\cos^2x\,dx=\frac x2+\frac{\sen2x}{4}+C`],
+   [r`\int\tan^2x\,dx=\tan x-x+C`],
+   [r`\int\cot^2x\,dx=-\cot x-x+C`],
+   [r`\int\sec^3x\,dx=\tfrac12\big(\sec x\tan x+\ln|\sec x+\tan x|\big)+C`],
+   [r`\int\tan^3x\,dx=\frac{\tan^2x}{2}+\ln|\cos x|+C`]]},
+  {h:'Fórmulas de reducción', items:[
+   [r`\int\sen^nx\,dx=-\frac{\sen^{n-1}x\cos x}{n}+\frac{n-1}{n}\int\sen^{n-2}x\,dx`],
+   [r`\int\cos^nx\,dx=\frac{\cos^{n-1}x\sen x}{n}+\frac{n-1}{n}\int\cos^{n-2}x\,dx`],
+   [r`\int\tan^nx\,dx=\frac{\tan^{n-1}x}{n-1}-\int\tan^{n-2}x\,dx`],
+   [r`\int\sec^nx\,dx=\frac{\sec^{n-2}x\tan x}{n-1}+\frac{n-2}{n-1}\int\sec^{n-2}x\,dx`],
+   [r`\int_0^{\pi/2}\sen^nx\,dx=\int_0^{\pi/2}\cos^nx\,dx=\frac{(n-1)!!}{n!!}\cdot\begin{cases}\pi/2&n\text{ par}\\1&n\text{ impar}\end{cases}`,'Wallis','w']]},
+  {h:'Cómo atacar potencias de seno y coseno', items:[
+   {tip:'\\(m\\) impar: separa un \\(\\sen x\\,dx\\), cambia el resto con \\(\\sen^2=1-\\cos^2\\) y usa \\(u=\\cos x\\).'},
+   {tip:'\\(n\\) impar: separa un \\(\\cos x\\,dx\\), usa \\(\\cos^2=1-\\sen^2\\) y \\(u=\\sen x\\).'},
+   {tip:'Ambos pares: baja la potencia con \\(\\sen^2=\\tfrac{1-\\cos2x}{2}\\) y \\(\\cos^2=\\tfrac{1+\\cos2x}{2}\\).'},
+   {tip:'\\(\\tan^m\\sec^n\\): \\(n\\) par → \\(u=\\tan x\\) con \\(\\sec^2=1+\\tan^2\\). \\(m\\) impar → \\(u=\\sec x\\) con \\(\\tan^2=\\sec^2-1\\).'},
+   [r`\int\sen mx\cos nx\,dx=\tfrac12\int\big[\sen(m+n)x+\sen(m-n)x\big]dx`,'Producto a suma'],
+   [r`\int\sen mx\sen nx\,dx=\tfrac12\int\big[\cos(m-n)x-\cos(m+n)x\big]dx`,'Producto a suma'],
+   [r`\int\cos mx\cos nx\,dx=\tfrac12\int\big[\cos(m-n)x+\cos(m+n)x\big]dx`,'Producto a suma']]}
+ ]},
+ {id:'def', t:'Integral definida', k:'TFC, simetrías, impropias, métodos numéricos', blocks:[
+  {h:'Teorema fundamental y propiedades', items:[
+   [r`\frac{d}{dx}\int_a^x f(t)\,dt=f(x)`,'TFC parte 1'],
+   [r`\int_a^b f(x)\,dx=F(b)-F(a)`,'TFC parte 2'],
+   [r`\frac{d}{dx}\int_{a(x)}^{b(x)}f(t)\,dt=f(b(x))\,b'(x)-f(a(x))\,a'(x)`,'Regla de Leibniz','w'],
+   [r`\int_a^b f=\lim_{n\to\infty}\sum_{i=1}^{n}f(x_i^*)\,\Delta x,\quad\Delta x=\frac{b-a}{n}`,'Suma de Riemann'],
+   [r`\int_a^b f=-\int_b^a f,\qquad\int_a^a f=0`],
+   [r`\int_a^b f=\int_a^c f+\int_c^b f`,'Aditividad'],
+   [r`f_{\text{prom}}=\frac{1}{b-a}\int_a^b f(x)\,dx`,'Valor promedio'],
+   [r`\Big|\int_a^b f\Big|\le\int_a^b|f|`]]},
+  {h:'Simetría y trucos', items:[
+   [r`f\ \text{par}\Rightarrow\int_{-a}^{a}f=2\int_0^a f`],
+   [r`f\ \text{impar}\Rightarrow\int_{-a}^{a}f=0`],
+   [r`\int_0^a f(x)\,dx=\int_0^a f(a-x)\,dx`],
+   [r`\int_0^{T}f=\frac1k\int_0^{kT}f\quad(f\text{ de periodo }T)`],
+   [r`\int_0^{\pi/2}\frac{\sen x}{\sen x+\cos x}dx=\frac\pi4`,'Ejemplo clásico de \\(f(a-x)\\)']]},
+  {h:'Impropias y especiales', items:[
+   [r`\int_1^{\infty}\frac{dx}{x^p}\ \text{converge}\iff p>1`],
+   [r`\int_0^{1}\frac{dx}{x^p}\ \text{converge}\iff p<1`],
+   [r`\int_a^{\infty}f=\lim_{b\to\infty}\int_a^b f`],
+   [r`\Gamma(n)=\int_0^\infty t^{n-1}e^{-t}dt=(n-1)!`,'Gamma'],
+   [r`\int_{-\infty}^{\infty}e^{-x^2}dx=\sqrt\pi`,'Gaussiana'],
+   [r`\int_0^\infty e^{-ax}dx=\frac1a`]]},
+  {h:'Métodos numéricos', items:[
+   [r`T_n=\frac h2\big[f_0+2f_1+\cdots+2f_{n-1}+f_n\big],\quad h=\frac{b-a}{n}`,'Trapecio','w'],
+   [r`S_n=\frac h3\big[f_0+4f_1+2f_2+\cdots+4f_{n-1}+f_n\big]`,'Simpson (\\(n\\) par)','w']]}
+ ]},
+ {id:'aint', t:'Aplicaciones', k:'Área, volumen, longitud de arco, superficie', blocks:[
+  {h:'Área y volumen', items:[
+   [r`A=\int_a^b\big[f(x)-g(x)\big]dx`,'Entre curvas (\\(f\\ge g\\))'],
+   [r`V=\pi\int_a^b R(x)^2\,dx`,'Discos'],
+   [r`V=\pi\int_a^b\big[R(x)^2-r(x)^2\big]dx`,'Arandelas'],
+   [r`V=2\pi\int_a^b x\,f(x)\,dx`,'Capas cilíndricas'],
+   [r`V=\int_a^b A(x)\,dx`,'Secciones transversales']]},
+  {h:'Longitud y superficie', items:[
+   [r`L=\int_a^b\sqrt{1+\big(f'(x)\big)^2}\,dx`,'Longitud de arco'],
+   [r`L=\int_\alpha^\beta\sqrt{x'(t)^2+y'(t)^2}\,dt`,'Paramétrica'],
+   [r`S=2\pi\int_a^b f(x)\sqrt{1+\big(f'(x)\big)^2}\,dx`,'Superficie de revolución'],
+   [r`A=\tfrac12\int_\alpha^\beta r^2\,d\theta`,'Área en polares'],
+   [r`L=\int_\alpha^\beta\sqrt{r^2+\Big(\frac{dr}{d\theta}\Big)^2}\,d\theta`,'Longitud en polares']]},
+  {h:'Física', items:[
+   [r`W=\int_a^b F(x)\,dx`,'Trabajo'],
+   [r`\bar x=\frac{\int x\,\rho(x)\,dx}{\int\rho(x)\,dx}`,'Centro de masa'],
+   [r`M=\int_a^b\rho(x)\,dx`,'Masa']]}
+ ]}
+]},
+
+{id:'v', cls:'g-v', glyph:'∇', name:'Vectorial', cards:[
+ {id:'vec', t:'Vectores', k:'Punto, cruz, proyección, triple producto', blocks:[
+  {h:'Producto punto', items:[
+   [r`\mathbf a\cdot\mathbf b=a_1b_1+a_2b_2+a_3b_3=|\mathbf a||\mathbf b|\cos\theta`],
+   [r`|\mathbf a|=\sqrt{\mathbf a\cdot\mathbf a}=\sqrt{a_1^2+a_2^2+a_3^2}`,'Norma'],
+   [r`\hat{\mathbf a}=\frac{\mathbf a}{|\mathbf a|}`,'Vector unitario'],
+   [r`\mathbf a\perp\mathbf b\iff\mathbf a\cdot\mathbf b=0`],
+   [r`\proj_{\mathbf b}\mathbf a=\frac{\mathbf a\cdot\mathbf b}{|\mathbf b|^2}\,\mathbf b`,'Proyección vectorial'],
+   [r`\operatorname{comp}_{\mathbf b}\mathbf a=\frac{\mathbf a\cdot\mathbf b}{|\mathbf b|}`,'Componente escalar'],
+   [r`|\mathbf a\cdot\mathbf b|\le|\mathbf a||\mathbf b|`,'Cauchy–Schwarz'],
+   [r`|\mathbf a+\mathbf b|\le|\mathbf a|+|\mathbf b|`,'Desigualdad triangular'],
+   [r`\cos^2\alpha+\cos^2\beta+\cos^2\gamma=1`,'Cosenos directores']]},
+  {h:'Producto cruz', items:[
+   [r`\mathbf a\times\mathbf b=\begin{vmatrix}\mathbf i&\mathbf j&\mathbf k\\a_1&a_2&a_3\\b_1&b_2&b_3\end{vmatrix}`],
+   [r`|\mathbf a\times\mathbf b|=|\mathbf a||\mathbf b|\sen\theta`,'Área del paralelogramo'],
+   [r`\mathbf a\times\mathbf b=-\,\mathbf b\times\mathbf a`,'Anticonmutativo'],
+   [r`\mathbf a\parallel\mathbf b\iff\mathbf a\times\mathbf b=\mathbf 0`],
+   [r`A_{\triangle}=\tfrac12|\mathbf a\times\mathbf b|`],
+   [r`\mathbf a\times(\mathbf b\times\mathbf c)=\mathbf b(\mathbf a\cdot\mathbf c)-\mathbf c(\mathbf a\cdot\mathbf b)`,'Triple producto vectorial'],
+   [r`V=\big|\mathbf a\cdot(\mathbf b\times\mathbf c)\big|`,'Triple escalar: volumen del paralelepípedo'],
+   [r`\mathbf a\cdot(\mathbf b\times\mathbf c)=\begin{vmatrix}a_1&a_2&a_3\\b_1&b_2&b_3\\c_1&c_2&c_3\end{vmatrix}`,'','w'],
+   {tip:'Coplanares ⇔ triple escalar = 0. Regla de la mano derecha para la dirección de \\(\\mathbf a\\times\\mathbf b\\).'}]}
+ ]},
+ {id:'rec', t:'Rectas, planos y cuádricas', k:'Ecuaciones, distancias, ángulos, superficies', blocks:[
+  {h:'Rectas', items:[
+   [r`\mathbf r(t)=\mathbf r_0+t\,\mathbf v`,'Vectorial'],
+   [r`x=x_0+at,\ \ y=y_0+bt,\ \ z=z_0+ct`,'Paramétrica'],
+   [r`\frac{x-x_0}{a}=\frac{y-y_0}{b}=\frac{z-z_0}{c}`,'Simétrica']]},
+  {h:'Planos', items:[
+   [r`a(x-x_0)+b(y-y_0)+c(z-z_0)=0`,'Normal \\(\\mathbf n=(a,b,c)\\)'],
+   [r`ax+by+cz+d=0`],
+   [r`\mathbf n=\mathbf u\times\mathbf v`,'Plano por dos direcciones'],
+   [r`\cos\theta=\frac{|\mathbf n_1\cdot\mathbf n_2|}{|\mathbf n_1||\mathbf n_2|}`,'Ángulo entre planos']]},
+  {h:'Distancias', items:[
+   [r`d=\frac{|ax_0+by_0+cz_0+d|}{\sqrt{a^2+b^2+c^2}}`,'Punto a plano'],
+   [r`d=\frac{|\overrightarrow{P_0P}\times\mathbf v|}{|\mathbf v|}`,'Punto a recta'],
+   [r`d=\frac{\big|\overrightarrow{P_1P_2}\cdot(\mathbf v_1\times\mathbf v_2)\big|}{|\mathbf v_1\times\mathbf v_2|}`,'Entre rectas que se cruzan'],
+   [r`d=\frac{|d_1-d_2|}{\sqrt{a^2+b^2+c^2}}`,'Entre planos paralelos']]},
+  {h:'Cuádricas', items:[
+   [r`(x-h)^2+(y-k)^2+(z-l)^2=\rho^2`,'Esfera'],
+   [r`\frac{x^2}{a^2}+\frac{y^2}{b^2}+\frac{z^2}{c^2}=1`,'Elipsoide'],
+   [r`\frac{x^2}{a^2}+\frac{y^2}{b^2}-\frac{z^2}{c^2}=1`,'Hiperboloide de una hoja'],
+   [r`-\frac{x^2}{a^2}-\frac{y^2}{b^2}+\frac{z^2}{c^2}=1`,'Hiperboloide de dos hojas'],
+   [r`\frac{z^2}{c^2}=\frac{x^2}{a^2}+\frac{y^2}{b^2}`,'Cono elíptico'],
+   [r`\frac zc=\frac{x^2}{a^2}+\frac{y^2}{b^2}`,'Paraboloide elíptico'],
+   [r`\frac zc=\frac{x^2}{a^2}-\frac{y^2}{b^2}`,'Paraboloide hiperbólico (silla)']]}
+ ]},
+ {id:'cur', t:'Curvas en el espacio', k:'Velocidad, Frenet, curvatura, torsión', blocks:[
+  {h:'Movimiento', items:[
+   [r`\mathbf r(t)=\big(x(t),y(t),z(t)\big)`],
+   [r`\mathbf v=\mathbf r'(t),\quad\mathbf a=\mathbf r''(t)`],
+   [r`s(t)=\int_a^t|\mathbf r'(u)|\,du`,'Longitud de arco'],
+   [r`L=\int_a^b|\mathbf r'(t)|\,dt`],
+   [r`a_T=\frac{\mathbf r'\cdot\mathbf r''}{|\mathbf r'|},\qquad a_N=\frac{|\mathbf r'\times\mathbf r''|}{|\mathbf r'|}`,'Aceleración tangencial y normal'],
+   [r`\mathbf a=a_T\,\mathbf T+a_N\,\mathbf N`]]},
+  {h:'Triedro de Frenet', items:[
+   [r`\mathbf T=\frac{\mathbf r'}{|\mathbf r'|}`,'Tangente unitario'],
+   [r`\mathbf N=\frac{\mathbf T'}{|\mathbf T'|}`,'Normal principal'],
+   [r`\mathbf B=\mathbf T\times\mathbf N`,'Binormal'],
+   [r`\kappa=\frac{|\mathbf T'|}{|\mathbf r'|}=\frac{|\mathbf r'\times\mathbf r''|}{|\mathbf r'|^3}`,'Curvatura'],
+   [r`\tau=\frac{(\mathbf r'\times\mathbf r'')\cdot\mathbf r'''}{|\mathbf r'\times\mathbf r''|^2}`,'Torsión'],
+   [r`\rho=\frac1\kappa`,'Radio de curvatura']]}
+ ]},
+ {id:'mv', t:'Varias variables', k:'Parciales, gradiente, cadena, extremos, Lagrange', blocks:[
+  {h:'Derivadas', items:[
+   [r`f_x=\frac{\partial f}{\partial x}=\lim_{h\to0}\frac{f(x+h,y)-f(x,y)}{h}`],
+   [r`f_{xy}=f_{yx}`,'Teorema de Clairaut (parciales continuas)'],
+   [r`df=f_x\,dx+f_y\,dy+f_z\,dz`,'Diferencial total'],
+   [r`\nabla f=\Big(\frac{\partial f}{\partial x},\frac{\partial f}{\partial y},\frac{\partial f}{\partial z}\Big)`,'Gradiente'],
+   [r`D_{\mathbf u}f=\nabla f\cdot\mathbf u,\quad|\mathbf u|=1`,'Derivada direccional'],
+   {tip:'\\(\\nabla f\\) apunta hacia donde \\(f\\) crece más rápido, con razón \\(|\\nabla f|\\), y es perpendicular a las curvas o superficies de nivel.'}]},
+  {h:'Planos tangentes y cadena', items:[
+   [r`z-z_0=f_x(x_0,y_0)(x-x_0)+f_y(x_0,y_0)(y-y_0)`,'Plano tangente a \\(z=f(x,y)\\)','w'],
+   [r`\nabla F(P_0)\cdot(\mathbf r-\mathbf r_0)=0`,'Plano tangente a \\(F(x,y,z)=c\\)'],
+   [r`\frac{dz}{dt}=\frac{\partial z}{\partial x}\frac{dx}{dt}+\frac{\partial z}{\partial y}\frac{dy}{dt}`,'Regla de la cadena'],
+   [r`\frac{\partial z}{\partial x}=-\frac{F_x}{F_z}`,'Derivada implícita'],
+   [r`L(x,y)=f(a,b)+f_x(a,b)(x-a)+f_y(a,b)(y-b)`,'Linealización']]},
+  {h:'Extremos', items:[
+   [r`\nabla f=\mathbf 0`,'Puntos críticos'],
+   [r`D=f_{xx}f_{yy}-\big(f_{xy}\big)^2`,'Discriminante (Hessiano)'],
+   [r`D>0,\ f_{xx}>0\Rightarrow\text{mínimo local}`],
+   [r`D>0,\ f_{xx}<0\Rightarrow\text{máximo local}`],
+   [r`D<0\Rightarrow\text{punto silla}`],
+   [r`\nabla f=\lambda\,\nabla g,\quad g=k`,'Multiplicadores de Lagrange']]}
+ ]},
+ {id:'mult', t:'Integrales múltiples', k:'Fubini, polares, cilíndricas, esféricas, Jacobiano', blocks:[
+  {h:'Integrales dobles y triples', items:[
+   [r`\iint_R f\,dA=\int_a^b\!\!\int_{g_1(x)}^{g_2(x)}f(x,y)\,dy\,dx`,'Región tipo I (Fubini)'],
+   [r`A=\iint_R dA,\qquad V=\iiint_E dV`],
+   [r`V=\iint_R f(x,y)\,dA`,'Volumen bajo \\(z=f\\)'],
+   [r`M=\iiint_E\rho\,dV`,'Masa'],
+   [r`\bar x=\frac1M\iiint_E x\,\rho\,dV`,'Centro de masa'],
+   [r`I_z=\iiint_E(x^2+y^2)\,\rho\,dV`,'Momento de inercia']]},
+  {h:'Cambio de coordenadas', items:[
+   [r`x=r\cos\theta,\ y=r\sen\theta,\ \ dA=r\,dr\,d\theta`,'Polares'],
+   [r`x=r\cos\theta,\ y=r\sen\theta,\ z=z,\ \ dV=r\,dz\,dr\,d\theta`,'Cilíndricas'],
+   [r`x=\rho\sen\varphi\cos\theta,\ y=\rho\sen\varphi\sen\theta,\ z=\rho\cos\varphi`,'Esféricas','w'],
+   [r`dV=\rho^2\sen\varphi\,d\rho\,d\varphi\,d\theta`,'Esféricas'],
+   [r`\iint f(x,y)\,dA=\iint f\big(x(u,v),y(u,v)\big)\left|\frac{\partial(x,y)}{\partial(u,v)}\right|du\,dv`,'Cambio general','w'],
+   [r`\frac{\partial(x,y)}{\partial(u,v)}=\begin{vmatrix}x_u&x_v\\y_u&y_v\end{vmatrix}`,'Jacobiano']]}
+ ]},
+ {id:'ops', t:'Operadores y campos', k:'Div, rot, Laplaciano, identidades, potencial', blocks:[
+  {h:'Definiciones', items:[
+   [r`\nabla=\Big(\frac{\partial}{\partial x},\frac{\partial}{\partial y},\frac{\partial}{\partial z}\Big)`],
+   [r`\divg\mathbf F=\nabla\cdot\mathbf F=P_x+Q_y+R_z`,'Divergencia, \\(\\mathbf F=(P,Q,R)\\)'],
+   [r`\rot\mathbf F=\nabla\times\mathbf F=\begin{vmatrix}\mathbf i&\mathbf j&\mathbf k\\\partial_x&\partial_y&\partial_z\\P&Q&R\end{vmatrix}`,'Rotacional'],
+   [r`\nabla^2f=\nabla\cdot\nabla f=f_{xx}+f_{yy}+f_{zz}`,'Laplaciano']]},
+  {h:'Identidades', items:[
+   [r`\nabla\times(\nabla f)=\mathbf 0`],
+   [r`\nabla\cdot(\nabla\times\mathbf F)=0`],
+   [r`\nabla(fg)=f\nabla g+g\nabla f`],
+   [r`\nabla\cdot(f\mathbf F)=\nabla f\cdot\mathbf F+f\,\nabla\cdot\mathbf F`],
+   [r`\nabla\times(f\mathbf F)=\nabla f\times\mathbf F+f\,\nabla\times\mathbf F`],
+   [r`\nabla\cdot(\mathbf F\times\mathbf G)=\mathbf G\cdot(\nabla\times\mathbf F)-\mathbf F\cdot(\nabla\times\mathbf G)`,'','w']]},
+  {h:'Campos conservativos', items:[
+   [r`\mathbf F=\nabla f\iff\mathbf F\ \text{conservativo}`],
+   [r`\nabla\times\mathbf F=\mathbf 0\Rightarrow\mathbf F\ \text{conservativo}`,'En dominio simplemente conexo'],
+   [r`Q_x=P_y`,'Criterio en el plano'],
+   {tip:'Para hallar el potencial: integra \\(P\\) respecto a \\(x\\), deriva respecto a \\(y\\) e iguala con \\(Q\\) para hallar lo que falta. Repite con \\(z\\).'}]}
+ ]},
+ {id:'lin', t:'Línea y superficie', k:'Trabajo, flujo, dS, parametrización', blocks:[
+  {h:'Integrales de línea', items:[
+   [r`\int_C f\,ds=\int_a^b f(\mathbf r(t))\,|\mathbf r'(t)|\,dt`,'Campo escalar'],
+   [r`\int_C\mathbf F\cdot d\mathbf r=\int_a^b\mathbf F(\mathbf r(t))\cdot\mathbf r'(t)\,dt`,'Trabajo'],
+   [r`\int_C P\,dx+Q\,dy+R\,dz`,'Forma diferencial'],
+   [r`\int_C\nabla f\cdot d\mathbf r=f(B)-f(A)`,'Teorema fundamental'],
+   [r`\oint_C\mathbf F\cdot d\mathbf r=0\ \text{si }\mathbf F\ \text{es conservativo}`]]},
+  {h:'Integrales de superficie', items:[
+   [r`dS=|\mathbf r_u\times\mathbf r_v|\,du\,dv`,'Superficie parametrizada'],
+   [r`dS=\sqrt{1+g_x^2+g_y^2}\,dA`,'Superficie \\(z=g(x,y)\\)'],
+   [r`\iint_S f\,dS=\iint_D f(\mathbf r(u,v))\,|\mathbf r_u\times\mathbf r_v|\,du\,dv`,'','w'],
+   [r`\iint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iint_D\mathbf F\cdot(\mathbf r_u\times\mathbf r_v)\,du\,dv`,'Flujo','w'],
+   [r`\iint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iint_D\mathbf F\cdot(-g_x,-g_y,1)\,dA`,'Flujo hacia arriba, \\(z=g\\)','w'],
+   [r`A(S)=\iint_S dS`,'Área de superficie']]}
+ ]},
+ {id:'teo', t:'Green, Stokes, Gauss', k:'Los tres teoremas integrales', blocks:[
+  {h:'Teoremas', items:[
+   [r`\oint_C P\,dx+Q\,dy=\iint_D\Big(\frac{\partial Q}{\partial x}-\frac{\partial P}{\partial y}\Big)dA`,'Green (\\(C\\) antihoraria)','w'],
+   [r`A=\tfrac12\oint_C x\,dy-y\,dx`,'Área por Green'],
+   [r`\oint_C\mathbf F\cdot\hat{\mathbf n}\,ds=\iint_D\nabla\cdot\mathbf F\,dA`,'Green, forma de flujo'],
+   [r`\oint_C\mathbf F\cdot d\mathbf r=\iint_S(\nabla\times\mathbf F)\cdot\hat{\mathbf n}\,dS`,'Stokes','w'],
+   [r`\oiint_S\mathbf F\cdot\hat{\mathbf n}\,dS=\iiint_E\nabla\cdot\mathbf F\,dV`,'Divergencia (Gauss)','w']]},
+  {h:'Cómo elegir', items:[
+   {tip:'Green: curva cerrada en el plano. Stokes: curva cerrada en el espacio que borda una superficie. Gauss: superficie cerrada que encierra un sólido, con normal hacia afuera.'},
+   {tip:'Orientación: recorre la curva con la superficie a tu izquierda (mano derecha). Si la curva no cierra la superficie, agrega tapas o usa el teorema fundamental.'},
+   [r`\int_{\partial\Omega}\omega=\int_{\Omega}d\omega`,'Los cuatro teoremas son el mismo: Stokes generalizado']]}
+ ]}
+]},
+
+{id:'a', cls:'g-a', glyph:'⌘', name:'Apoyo', cards:[
+ {id:'idt', t:'Identidades trigonométricas', k:'Pitagóricas, ángulo doble, suma, producto', blocks:[
+  {h:'Básicas', items:[
+   [r`\sen^2x+\cos^2x=1`],[r`1+\tan^2x=\sec^2x`],[r`1+\cot^2x=\csc^2x`],
+   [r`\tan x=\frac{\sen x}{\cos x},\quad\cot x=\frac{\cos x}{\sen x}`],
+   [r`\sec x=\frac1{\cos x},\quad\csc x=\frac1{\sen x}`],
+   [r`\sen(-x)=-\sen x,\quad\cos(-x)=\cos x`,'Paridad'],
+   [r`\sen\!\Big(\frac\pi2-x\Big)=\cos x`,'Cofunción']]},
+  {h:'Suma y ángulo doble', items:[
+   [r`\sen(a\pm b)=\sen a\cos b\pm\cos a\sen b`],
+   [r`\cos(a\pm b)=\cos a\cos b\mp\sen a\sen b`],
+   [r`\tan(a\pm b)=\frac{\tan a\pm\tan b}{1\mp\tan a\tan b}`],
+   [r`\sen2x=2\sen x\cos x`],
+   [r`\cos2x=\cos^2x-\sen^2x=2\cos^2x-1=1-2\sen^2x`,'','w'],
+   [r`\tan2x=\frac{2\tan x}{1-\tan^2x}`]]},
+  {h:'Reducción de potencia y producto', items:[
+   [r`\sen^2x=\frac{1-\cos2x}{2}`],[r`\cos^2x=\frac{1+\cos2x}{2}`],
+   [r`\sen a\cos b=\tfrac12\big[\sen(a+b)+\sen(a-b)\big]`],
+   [r`\sen a\sen b=\tfrac12\big[\cos(a-b)-\cos(a+b)\big]`],
+   [r`\cos a\cos b=\tfrac12\big[\cos(a-b)+\cos(a+b)\big]`],
+   [r`\sen\frac x2=\pm\sqrt{\frac{1-\cos x}{2}},\quad\cos\frac x2=\pm\sqrt{\frac{1+\cos x}{2}}`,'Ángulo mitad'],
+   [r`e^{i\theta}=\cos\theta+i\sen\theta`,'Euler']]}
+ ]},
+ {id:'ang', t:'Ángulos notables', k:'Tabla del círculo unitario', blocks:[
+  {h:'Tabla', items:[
+   [r`\begin{array}{c|ccccccccc}\theta&0&30^\circ&45^\circ&60^\circ&90^\circ&120^\circ&135^\circ&150^\circ&180^\circ\\\theta\,\text{rad}&0&\frac\pi6&\frac\pi4&\frac\pi3&\frac\pi2&\frac{2\pi}3&\frac{3\pi}4&\frac{5\pi}6&\pi\\\hline\sen\theta&0&\frac12&\frac{\sqrt2}2&\frac{\sqrt3}2&1&\frac{\sqrt3}2&\frac{\sqrt2}2&\frac12&0\\[4pt]\cos\theta&1&\frac{\sqrt3}2&\frac{\sqrt2}2&\frac12&0&-\frac12&-\frac{\sqrt2}2&-\frac{\sqrt3}2&-1\\[4pt]\tan\theta&0&\frac{\sqrt3}3&1&\sqrt3&\text{—}&-\sqrt3&-1&-\frac{\sqrt3}3&0\end{array}`,'Primer y segundo cuadrante','w'],
+   {tip:'Seno en 0°, 30°, 45°, 60°, 90°: \\(\\tfrac{\\sqrt0}{2},\\tfrac{\\sqrt1}{2},\\tfrac{\\sqrt2}{2},\\tfrac{\\sqrt3}{2},\\tfrac{\\sqrt4}{2}\\). El coseno va en orden inverso.'},
+   {tip:'Mano izquierda: baja el dedo del ángulo; dedos abajo = \\(n\\) en \\(\\tfrac{\\sqrt n}{2}\\) para el seno, dedos arriba para el coseno.'},
+   [r`\pi\ \text{rad}=180^\circ,\qquad1\ \text{rad}=\frac{180^\circ}{\pi}`,'Conversión'],
+   [r`s=r\theta,\qquad A_{\text{sector}}=\tfrac12r^2\theta`,'Arco y sector']]}
+ ]},
+ {id:'alg', t:'Álgebra y logaritmos', k:'Logaritmos, binomio, factorización', blocks:[
+  {h:'Logaritmos y exponentes', items:[
+   [r`\ln(ab)=\ln a+\ln b`],[r`\ln\frac ab=\ln a-\ln b`],[r`\ln a^{n}=n\ln a`],
+   [r`\log_a x=\frac{\ln x}{\ln a}`,'Cambio de base'],
+   [r`e^{\ln x}=x,\qquad\ln e^{x}=x`],
+   [r`a^{m}a^{n}=a^{m+n},\quad\frac{a^m}{a^n}=a^{m-n},\quad(a^m)^n=a^{mn}`,'','w']]},
+  {h:'Factorización y binomio', items:[
+   [r`a^2-b^2=(a-b)(a+b)`],
+   [r`a^3\pm b^3=(a\pm b)(a^2\mp ab+b^2)`],
+   [r`(a\pm b)^2=a^2\pm2ab+b^2`],
+   [r`(a+b)^n=\sum_{k=0}^{n}\binom nk a^{n-k}b^k`],
+   [r`x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}`,'Fórmula general'],
+   [r`\binom nk=\frac{n!}{k!\,(n-k)!}`]]}
+ ]}
+]}
+];
+
+/* ---------- numeración global ---------- */
+let N=0;
+GROUPS.forEach(g=>g.cards.forEach(c=>{
+  c.first=N+1; c.count=0;
+  c.blocks.forEach((b,bi)=>{b.id=c.id+'-b'+bi; b.items.forEach(it=>{if(Array.isArray(it)){it.n=++N;c.count++;}});});
+  c.last=N;
+}));
+
+/* ---------- estado ---------- */
+const KEY='hoja-calculo-resaltadas';
+let hl=new Set();
+try{const s=localStorage.getItem(KEY); if(s) hl=new Set(JSON.parse(s));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify([...hl]));}catch(e){}}
+
+const $=s=>document.querySelector(s);
+const home=$('#home'), dlg=$('#dlg'), dbody=$('#dbody'), dfoot=$('#dfoot'), djump=$('#djump');
+const built=new Map(); let current=null, currentGroup=null;
+
+/* ---------- home ---------- */
+GROUPS.forEach(g=>{
+  const sec=document.createElement('section'); sec.className='group '+g.cls;
+  sec.innerHTML='<div class="glabel"><span class="glyph"></span><span class="gname"></span></div><div class="cards"></div>';
+  sec.querySelector('.glyph').textContent=g.glyph; sec.querySelector('.gname').textContent=g.name;
+  const wrap=sec.querySelector('.cards');
+  g.cards.forEach(c=>{
+    const b=document.createElement('button'); b.type='button'; b.className='card';
+    b.innerHTML='<span class="t"></span><span class="k"></span><span class="m"><span class="a"></span><span class="b"></span></span>';
+    b.querySelector('.t').textContent=c.t; b.querySelector('.k').textContent=c.k;
+    b.querySelector('.a').textContent=c.count+' fórmulas'; b.querySelector('.b').textContent='#'+c.first+'–'+c.last;
+    b.addEventListener('click',()=>openCard(g,c));
+    wrap.appendChild(b);
+  });
+  home.appendChild(sec);
+});
+
+/* ---------- figura del círculo ---------- */
+function circuloSVG(){
+  const cx=200,cy=200,Rn=118,ns='http://www.w3.org/2000/svg';
+  const pol=(a,rad)=>[cx+rad*Math.cos(a*Math.PI/180),cy+rad*Math.sin(a*Math.PI/180)];
+  const labels=['sen x','cos x','−sen x','−cos x'];
+  let s='<svg viewBox="0 0 400 400" role="img" aria-label="Círculo de derivación e integración de seno y coseno"><defs>'
+   +'<marker id="ad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--d)"/></marker>'
+   +'<marker id="ai" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--i)"/></marker></defs>';
+  s+='<circle cx="200" cy="200" r="118" fill="none" stroke="var(--line)" stroke-dasharray="3 5"/>';
+  for(let k=0;k<4;k++){
+    const a0=-90+90*k;
+    // derivar (horario, radio exterior)
+    let [x1,y1]=pol(a0+24,158),[x2,y2]=pol(a0+66,158);
+    s+=`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A158 158 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="var(--d)" stroke-width="3" marker-end="url(#ad)"/>`;
+    let [tx,ty]=pol(a0+45,176);
+    s+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="var(--d)" font-family="IBM Plex Mono,monospace" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="middle">d/dx</text>`;
+    // integrar (antihorario, radio interior)
+    [x1,y1]=pol(a0+66,78); [x2,y2]=pol(a0+24,78);
+    s+=`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A78 78 0 0 0 ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="var(--i)" stroke-width="3" marker-end="url(#ai)"/>`;
+    [tx,ty]=pol(a0+45,56);
+    s+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="var(--i)" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="500" text-anchor="middle" dominant-baseline="middle">∫</text>`;
+  }
+  for(let k=0;k<4;k++){
+    const [x,y]=pol(-90+90*k,Rn);
+    s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="33" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>`
+      +`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="var(--ink)" font-family="IBM Plex Sans,sans-serif" font-size="15" font-weight="600" text-anchor="middle" dominant-baseline="middle">${labels[k]}</text>`;
+  }
+  return s+'</svg>';
+}
+
+/* ---------- construir modal ---------- */
+function buildCard(c){
+  const root=document.createDocumentFragment();
+  c.blocks.forEach(b=>{
+    const sec=document.createElement('section'); sec.className='blk'; sec.id=b.id;
+    const h=document.createElement('h3'); h.textContent=b.h; sec.appendChild(h);
+    const list=document.createElement('div'); list.className='fl';
+    b.items.forEach(it=>{
+      if(Array.isArray(it)){
+        const [tex,note,flag]=it, n=it.n;
+        const f=document.createElement('div'); f.className='f'+(flag==='w'?' w':''); f.tabIndex=0; f.setAttribute('role','button');
+        f.dataset.n=n; f.id='f'+n;
+        const nn=document.createElement('span'); nn.className='n'; nn.textContent=n;
+        const x=document.createElement('div'); x.className='x'; x.textContent='\\['+'\\displaystyle '+tex+'\\]';
+        f.append(nn,x);
+        if(note){const no=document.createElement('div'); no.className='note'; no.textContent=note; f.appendChild(no);}
+        const cp=document.createElement('button'); cp.type='button'; cp.className='cp'; cp.title='Copiar LaTeX'; cp.setAttribute('aria-label','Copiar LaTeX de la fórmula '+n); cp.textContent='⧉';
+        cp.addEventListener('click',e=>{e.stopPropagation(); copyTex(tex,cp);});
+        f.appendChild(cp);
+        setOn(f,hl.has(n));
+        list.appendChild(f);
+      }else if(it.tip){
+        const t=document.createElement('div'); t.className='tip'; const bb=document.createElement('b'); bb.textContent='TIP'; const sp=document.createElement('span'); sp.textContent=it.tip; t.append(bb,sp); list.appendChild(t);
+      }else if(it.fig){
+        const fg=document.createElement('div'); fg.className='fig';
+        fg.innerHTML=circuloSVG()+'<div class="legend"><div><span class="dd">Rojo · derivar</span>: avanza en sentido horario.</div><div><span class="ii">Azul · integrar</span>: avanza en sentido antihorario.</div><div>Cada flecha es un paso. Al integrar se suma \\(+C\\).</div></div>';
+        list.appendChild(fg);
+      }
+    });
+    sec.appendChild(list); root.appendChild(sec);
+  });
+  return root;
+}
+function setOn(f,on){f.classList.toggle('on',on);f.setAttribute('aria-pressed',on?'true':'false');}
+
+function toggle(f){
+  const n=+f.dataset.n; if(hl.has(n)) hl.delete(n); else hl.add(n);
+  setOn(f,hl.has(n)); save(); refresh();
+}
+dbody.addEventListener('click',e=>{const f=e.target.closest('.f'); if(f) toggle(f);});
+dbody.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('f')){e.preventDefault();toggle(e.target);}
+});
+
+function copyTex(tex,btn){
+  const done=()=>{btn.textContent='✓';btn.classList.add('ok');setTimeout(()=>{btn.textContent='⧉';btn.classList.remove('ok');},1200);};
+  try{navigator.clipboard.writeText(tex).then(done,()=>fallback());}catch(e){fallback();}
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=tex; document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy'); done();}catch(e){} ta.remove();
+  }
+}
+
+function refresh(){
+  $('#stat').textContent=hl.size+(hl.size===1?' resaltada':' resaltadas');
+  if(!current) return;
+  dfoot.textContent='';
+  const mine=[]; for(let n=current.first;n<=current.last;n++) if(hl.has(n)) mine.push(n);
+  if(!mine.length){dfoot.textContent='Toca una fórmula para resaltarla. Los números identifican cada una.'; return;}
+  const lab=document.createElement('span'); lab.textContent='En uso:'; dfoot.appendChild(lab);
+  mine.forEach(n=>{
+    const p=document.createElement('button'); p.type='button'; p.className='pill'; p.textContent='#'+n; p.title='Ir a la fórmula '+n;
+    p.addEventListener('click',()=>{const el=document.getElementById('f'+n); if(el) el.scrollIntoView({block:'center'});});
+    dfoot.appendChild(p);
+  });
+  const clr=document.createElement('button'); clr.type='button'; clr.className='clr'; clr.textContent='quitar resaltado';
+  clr.addEventListener('click',()=>{mine.forEach(n=>hl.delete(n)); dbody.querySelectorAll('.f.on').forEach(f=>setOn(f,false)); save(); refresh();});
+  dfoot.appendChild(clr);
+}
+$('#clearAll').addEventListener('click',()=>{hl.clear(); save(); document.querySelectorAll('.f.on').forEach(f=>setOn(f,false)); refresh();});
+
+function typeset(el){
+  const go=()=>{ if(window.MathJax&&MathJax.typesetPromise) MathJax.startup.promise.then(()=>MathJax.typesetPromise([el])).catch(()=>{}); else setTimeout(go,120); };
+  go();
+}
+
+function openCard(g,c){
+  current=c; currentGroup=g;
+  dlg.className=g.cls;
+  const gl=$('#dglyph'); gl.textContent=g.glyph; gl.style.color='var(--c)';
+  $('#dtitle').textContent=c.t; $('#drange').textContent=g.name+' · fórmulas #'+c.first+' a #'+c.last;
+  djump.textContent='';
+  c.blocks.forEach(b=>{
+    const ch=document.createElement('button'); ch.type='button'; ch.className='chip'; ch.textContent=b.h;
+    ch.addEventListener('click',()=>{const el=document.getElementById(b.id); if(el) dbody.scrollTo({top:el.offsetTop-dbody.offsetTop,behavior:'smooth'});});
+    djump.appendChild(ch);
+  });
+  dbody.textContent='';
+  let frag=built.get(c.id);
+  if(!frag){frag=document.createElement('div'); frag.appendChild(buildCard(c)); built.set(c.id,frag); typeset(frag);}
+  else frag.querySelectorAll('.f').forEach(f=>setOn(f,hl.has(+f.dataset.n)));
+  dbody.appendChild(frag);
+  dbody.scrollTop=0;
+  refresh();
+  document.documentElement.style.overflow='hidden';
+  if(!dlg.open) dlg.showModal();
+}
+function closeDlg(){ if(dlg.open) dlg.close(); }
+dlg.addEventListener('close',()=>{document.documentElement.style.overflow='';current=null;});
+$('#dclose').addEventListener('click',closeDlg);
+dlg.addEventListener('mousedown',e=>{ if(e.target===dlg) closeDlg(); });
+
+/* jump chips: usar --c del grupo */
+dlg.addEventListener('toggle',()=>{});
+refresh();
+</script>
+<script>
+/* Motor de la calculadora: LaTeX -> Algebrite -> LaTeX. Sin dependencias del DOM. */
+const CalcEngine = (function () {
+  'use strict';
+  const A = () => (typeof Algebrite !== 'undefined' ? Algebrite : require('algebrite'));
+
+  /* ================= LaTeX -> sintaxis Algebrite ================= */
+  const FN = {
+    sen: 'sin', sin: 'sin', cos: 'cos', tan: 'tan', tg: 'tan', sec: 'sec', csc: 'csc', cot: 'cot', ctg: 'cot',
+    sinh: 'sinh', senh: 'sinh', cosh: 'cosh', tanh: 'tanh',
+    arcsin: 'arcsin', arcsen: 'arcsin', arccos: 'arccos', arctan: 'arctan', arctg: 'arctan',
+    ln: 'log', log: 'log10', exp: 'exp', abs: 'abs', sqrt: 'sqrt', cbrt: 'cbrt',
+    asin: 'arcsin', asen: 'arcsin', acos: 'arccos', atan: 'arctan', raiz: 'sqrt'
+  };
+  const FNNAMES = Object.keys(FN).sort((a, b) => b.length - a.length);
+
+  function preprocess(s) {
+    return s
+      .replace(/\\displaystyle|\\left|\\right|\\!|\\,|\\;|\\:|\\quad|\\qquad|\\ /g, '')
+      .replace(/\\dfrac|\\tfrac/g, '\\frac')
+      .replace(/\u2212/g, '-').replace(/\u00b7|\u00d7/g, '*').replace(/\u00f7/g, '/').replace(/\u03c0/g, '\\pi')
+      .replace(/\u00b2/g, '^2').replace(/\u00b3/g, '^3').replace(/\u27e8/g, '<').replace(/\u27e9/g, '>')
+      .replace(/\u221a/g, '\\sqrt');
+  }
+
+  function fnCall(name, arg, pow) {
+    const k = FN[name.toLowerCase()];
+    let core;
+    if (k === 'sec') core = `(1/cos(${arg}))`;
+    else if (k === 'csc') core = `(1/sin(${arg}))`;
+    else if (k === 'cot') core = `(cos(${arg})/sin(${arg}))`;
+    else if (k === 'log10') core = `(log(${arg})/log(10))`;
+    else if (k === 'cbrt') core = `((${arg})^(1/3))`;
+    else core = `${k}(${arg})`;
+    return pow ? `(${core}^(${pow}))` : `(${core})`;
+  }
+
+  /* devuelve tokens {t:'num'|'id'|'unit'|'grp'|'op'|'e', v} */
+  function lex(s) {
+    const toks = []; let i = 0;
+    const push = (t, v) => toks.push({ t, v });
+    const err = m => { throw new Error(m); };
+    const readGroup = () => { // s[i] === '{'
+      let d = 0; const st = i + 1;
+      for (; i < s.length; i++) {
+        if (s[i] === '{') d++;
+        else if (s[i] === '}') { d--; if (d === 0) { const r = s.slice(st, i); i++; return r; } }
+      }
+      return err('Falta cerrar una llave }');
+    };
+    const readParen = () => { // s[i] === '('
+      let d = 0; const st = i + 1;
+      for (; i < s.length; i++) {
+        if (s[i] === '(') d++;
+        else if (s[i] === ')') { d--; if (d === 0) { const r = s.slice(st, i); i++; return r; } }
+      }
+      return err('Falta cerrar un paréntesis )');
+    };
+    const skipWs = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+    // lee un "átomo" para exponentes/argumentos sin llaves
+    const readAtom = () => {
+      skipWs();
+      if (i >= s.length) err('Falta un argumento');
+      if (s[i] === '{') return conv(readGroup());
+      if (s[i] === '(') return conv(readParen());
+      if (s[i] === '-' || s[i] === '+') { const sg = s[i]; i++; return `(${sg}${readAtom()})`; }
+      if (/[0-9]/.test(s[i])) { const d = s[i]; i++; return d; }
+      if (/[A-Za-z]/.test(s[i])) { const c = s[i]; i++; return c === 'e' ? 'exp(1)' : (c === 'i' ? 'ui' : c === 'j' ? 'uj' : c === 'k' ? 'uk' : c); }
+      if (s[i] === '\\') {
+        const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+        if (m && m[1] === 'pi') { i += m[0].length; return 'pi'; }
+        if (m) { const save = toks.length; lexCommand(); const t = toks.splice(save)[0]; return t ? t.v : err('Argumento no válido'); }
+      }
+      return err('Argumento no válido tras "^" o función');
+    };
+    const readFnArg = () => {
+      skipWs();
+      if (s[i] === '(') return conv(readParen());
+      if (s[i] === '{') return conv(readGroup());
+      return readAtom();
+    };
+    const unitOf = inner => {
+      const m = /^\s*\\?(i|j|k|imath|jmath)\s*$/.exec(inner.replace(/\\mathbf|\\boldsymbol|\\bm|\\textbf|\\vec|\\hat|[{}]/g, ''));
+      if (!m) err('Solo se admiten los vectores unitarios i, j, k');
+      return m[1] === 'imath' ? 'i' : m[1] === 'jmath' ? 'j' : m[1];
+    };
+    function lexCommand() {
+      const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+      if (!m) { err('Comando LaTeX no válido cerca de "' + s.slice(i, i + 6) + '"'); }
+      const cmd = m[1]; i += m[0].length;
+      if (cmd === 'frac') { skipWs(); const a = conv(readGroup()); skipWs(); const b = conv(readGroup()); push('grp', `((${a})/(${b}))`); return; }
+      if (cmd === 'sqrt') {
+        skipWs(); let n = null;
+        if (s[i] === '[') { const e = s.indexOf(']', i); if (e < 0) err('Falta cerrar ] en la raíz'); n = conv(s.slice(i + 1, e)); i = e + 1; }
+        skipWs(); const a = readFnArg();
+        push('grp', n ? `((${a})^(1/(${n})))` : `sqrt(${a})`); return;
+      }
+      if (cmd === 'pi') { push('id', 'pi'); return; }
+      if (cmd === 'cdot' || cmd === 'times') { push('op', '*'); return; }
+      if (cmd === 'infty') err('El infinito no está soportado');
+      if (['mathbf', 'boldsymbol', 'bm', 'textbf', 'vec', 'hat', 'mathrm'].includes(cmd)) {
+        skipWs();
+        let inner;
+        if (s[i] === '{') inner = readGroup();
+        else { const mm = /^\\?[A-Za-z]+/.exec(s.slice(i)); if (!mm) err('Falta el argumento de \\' + cmd); inner = mm[0]; i += mm[0].length; if (!/^\\?(i|j|k|imath|jmath)$/.test(inner)) { inner = inner[0]; i -= mm[0].length - 1; } }
+        if (cmd === 'mathrm') { const nm = inner.trim(); if (FN[nm.toLowerCase()] !== undefined) { fnWord(nm, false); return; } push('grp', conv(inner)); return; }
+        push('unit', 'u' + unitOf(inner)); return;
+      }
+      if (cmd === 'imath') { push('unit', 'ui'); return; }
+      if (cmd === 'jmath') { push('unit', 'uj'); return; }
+      if (cmd === 'operatorname') { skipWs(); const nm = readGroup(); return fnWord(nm.trim(), true); }
+      if (FN[cmd.toLowerCase()] !== undefined) return fnWord(cmd, true);
+      return err('Comando no reconocido: \\' + cmd);
+    }
+    function fnWord(name, cmdForm) {
+      let log_b = null, pow = null;
+      skipWs();
+      if (name.toLowerCase() === 'log' && s[i] === '_') { i++; log_b = readAtom(); }
+      skipWs();
+      if (s[i] === '^') { i++; pow = readAtom(); }
+      skipWs();
+      if (!cmdForm && s[i] !== '(' && s[i] !== '{') err('La función ' + name + ' necesita paréntesis: ' + name + '(…)');
+      const arg = readFnArg();
+      if (log_b) { push('grp', `(log(${arg})/log(${log_b}))`); return; }
+      push('grp', fnCall(name, arg, pow));
+    }
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (/[0-9.]/.test(c)) { let j = i; while (j < s.length && /[0-9.]/.test(s[j])) j++; push('num', s.slice(i, j)); i = j; continue; }
+      if (/[A-Za-z]/.test(c)) {
+        let j = i; while (j < s.length && /[A-Za-z]/.test(s[j])) j++;
+        const word = s.slice(i, j);
+        // ¿la cola de la palabra es función o pi?
+        let cut = -1, fname = null, isPi = false;
+        for (let p = 0; p < word.length; p++) {
+          const tail = word.slice(p).toLowerCase();
+          if (tail === 'pi') { cut = p; isPi = true; break; }
+          if (FN[tail] !== undefined) {
+            const nx = s.slice(j).trimStart()[0];
+            if (nx === '(' || nx === '{' || nx === '^' || nx === '_') { cut = p; fname = word.slice(p); break; }
+          }
+        }
+        if (cut < 0) {
+          for (let p = 0; p < word.length; p++) {
+            const tail = word.slice(p).toLowerCase();
+            if (tail.length >= 2 && FN[tail] !== undefined) err('La función ' + word.slice(p) + ' necesita paréntesis: ' + word.slice(p) + '(…)');
+          }
+        }
+        const letters = cut < 0 ? word : word.slice(0, cut);
+        for (const ch of letters) {
+          if (ch === 'e') push('e', 'exp(1)');
+          else if (ch === 'i' || ch === 'j' || ch === 'k') push('unit', 'u' + ch);
+          else push('id', ch);
+        }
+        i = j;
+        if (isPi) push('id', 'pi');
+        else if (fname) fnWord(fname, false);
+        continue;
+      }
+      if (c === '\\') { lexCommand(); continue; }
+      if (c === '{') { push('grp', '(' + conv(readGroup()) + ')'); continue; }
+      if (c === '(' ) { push('grp', '(' + conv(readParen()) + ')'); continue; }
+      if (c === '[') { const e = s.indexOf(']', i); if (e < 0) err('Falta cerrar ]'); push('grp', '(' + conv(s.slice(i + 1, e)) + ')'); i = e + 1; continue; }
+      if (c === ')' || c === '}' || c === ']') err('Sobra un cierre "' + c + '"');
+      if (c === '^') { i++; push('op', '^'); push('grp', '(' + readAtom() + ')'); continue; }
+      if (c === '+' || c === '-' || c === '*' || c === '/') { push('op', c); i++; continue; }
+      if (c === ',') err('Una coma solo se permite para separar componentes dentro de ⟨ ⟩');
+      err('Símbolo no reconocido: "' + c + '"');
+    }
+    return toks;
+  }
+
+  function conv(s) {
+    const toks = lex(s);
+    const closer = t => t && (t.t === 'num' || t.t === 'id' || t.t === 'unit' || t.t === 'grp' || t.t === 'e');
+    const out = [];
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.t === 'e' && toks[k + 1] && toks[k + 1].t === 'op' && toks[k + 1].v === '^' && toks[k + 2]) {
+        const piece = `exp(${toks[k + 2].v})`;
+        toks.splice(k, 3, { t: 'grp', v: piece }); k--; continue;
+      }
+      const prev = out[out.length - 1];
+      if (prev && closer(prev) && closer(t) && !(prev.t === 'num' && t.t === 'num')) out.push({ t: 'op', v: '*' });
+      out.push(t);
+    }
+    // el exponente aplica sobre el elemento previo
+    return out.map(t => t.v).join('');
+  }
+
+  /* ================= estructura de vectores ================= */
+  function splitTop(s) {
+    const parts = []; let d = 0, cur = '';
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (s.startsWith('\\langle', i)) { d++; cur += '\\langle'; i += 6; continue; }
+      if (s.startsWith('\\rangle', i)) { d--; cur += '\\rangle'; i += 6; continue; }
+      if (c === '(' || c === '{' || c === '[') d++;
+      if (c === ')' || c === '}' || c === ']') d--;
+      if (c === ',' && d === 0) { parts.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    parts.push(cur);
+    return parts;
+  }
+
+  /* parseExpr: devuelve {comps:[algStr], vec:boolean} */
+  function parseVector(tex, minLen) {
+    let s = preprocess(String(tex || '')).trim();
+    if (!s) throw new Error('Escribe una expresión.');
+    let m = /^\\langle([\s\S]*)\\rangle$/.exec(s) || /^<([\s\S]*)>$/.exec(s);
+    let parts = null;
+    if (m) parts = splitTop(m[1]);
+    else if (/^\([\s\S]*\)$/.test(s)) {
+      // paréntesis externos que abarcan todo y contienen comas de nivel superior
+      let d = 0, whole = true;
+      for (let i = 0; i < s.length - 1; i++) { if (s[i] === '(') d++; if (s[i] === ')') d--; if (d === 0) { whole = false; break; } }
+      if (whole) { const p = splitTop(s.slice(1, -1)); if (p.length > 1) parts = p; }
+    }
+    if (parts) {
+      if (parts.length < 2 || parts.length > 3) throw new Error('Un vector debe tener 2 o 3 componentes.');
+      return { vec: true, comps: parts.map(p => { if (!p.trim()) throw new Error('Hay una componente vacía.'); return conv(p); }) };
+    }
+    const E = conv(s);
+    if (!/u[ijk]/.test(E)) return { vec: false, comps: [E] };
+    const a = A();
+    const comp = u => {
+      const others = ['ui', 'uj', 'uk'].filter(x => x !== u);
+      return run(`subst(0,${others[1]},subst(0,${others[0]},subst(1,${u},${E})))`);
+    };
+    const c = ['ui', 'uj', 'uk'].map(comp);
+    const nz = c.map(x => x !== '0');
+    // 2D si no hay k
+    const comps = nz[2] || (minLen === 3) ? c : c.slice(0, 2);
+    return { vec: true, comps };
+  }
+
+  function parseScalar(tex, what) {
+    const p = parseVector(tex);
+    if (p.vec) throw new Error((what || 'El valor') + ' debe ser un escalar.');
+    return p.comps[0];
+  }
+
+  /* ================= Algebrite helpers ================= */
+  function friendly(msg) {
+    if (/divide by zero|division by zero/i.test(msg)) return 'División entre cero: alguna expresión no está definida en ese valor (por ejemplo √t o 1/t en t = 0). Prueba con otro t₀ o deja t₀ vacío.';
+    return 'No se pudo calcular: ' + msg;
+  }
+  function run(cmd) {
+    let out;
+    try { out = A().run(cmd); } catch (e) { throw new Error(friendly(e.message || String(e))); }
+    out = String(out).trim();
+    if (/^Stop:|^Parse error|Unknown|Stop:/i.test(out)) throw new Error(friendly(out.replace(/^Stop:\s*/, '')));
+    return out;
+  }
+  const D = (e, v) => {
+    const r = run(`d(${e},${v})`);
+    if (/\/[^0-9]/.test(r)) { try { const s = run(`simplify(${r})`); if (s.length < r.length) return s; } catch (x) { /* se queda r */ } }
+    return r;
+  };
+  const SUBST = (val, v, e) => run(`subst(${val},${v},${e})`);
+  const SIMP = e => run(`simplify(${e})`);
+  const ADD = (a, b) => run(`${a}+(${b})`);
+  const SUB = (a, b) => run(`(${a})-(${b})`);
+  const MUL = (a, b) => `(${a})*(${b})`;
+  function INTEG(e, v) {
+    const r = run(`integral(${e},${v})`);
+    if (/integral\(/.test(r)) throw new Error('No se pudo integrar de forma exacta: ' + latex(e));
+    return r;
+  }
+
+  const LMAP = [['arcsin', '\\arcsen'], ['arccos', '\\arccos'], ['arctan', '\\arctan'], ['sinh', '\\senh'], ['cosh', '\\cosh'], ['tanh', '\\tanh'], ['sin', '\\sen'], ['cos', '\\cos'], ['tan', '\\tan'], ['log', '\\ln'], ['abs', '\\operatorname{abs}']];
+  function stripParen(l) { // {(...)} -> {...}
+    let out = '', i = 0;
+    while (i < l.length) {
+      if (l[i] === '{' && l[i + 1] === '(') {
+        let d = 0, j = i + 1;
+        for (; j < l.length; j++) { if (l[j] === '(') d++; else if (l[j] === ')') { d--; if (d === 0) break; } }
+        if (j < l.length && l[j + 1] === '}') { out += '{' + stripParen(l.slice(i + 2, j)) + '}'; i = j + 2; continue; }
+      }
+      out += l[i++];
+    }
+    return out;
+  }
+  function latex(e) {
+    let l = run(`printlatex(${e})`);
+    for (const [k, v] of LMAP) l = l.replace(new RegExp('(?<!\\\\)' + k + '(?=\\s*[({\\\\])', 'g'), () => v);
+    let prev;
+    do { prev = l; l = l.replace(/\\sqrt\{(\d+)\}\\sqrt\{(\d+)\}/g, (m, a, b) => '\\sqrt{' + (BigInt(a) * BigInt(b)) + '}'); } while (l !== prev);
+    return stripParen(l);
+  }
+
+  /* evaluador numérico seguro para cadenas de Algebrite */
+  function compile(str, vars) {
+    vars = vars || [];
+    let p = 0; const s = str.replace(/\s+/g, '');
+    const peek = () => s[p];
+    const FNS = { sin: Math.sin, cos: Math.cos, tan: Math.tan, exp: Math.exp, log: Math.log, sqrt: Math.sqrt, abs: Math.abs, arcsin: Math.asin, arccos: Math.acos, arctan: Math.atan, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh };
+    function expr() { let l = term(); while (peek() === '+' || peek() === '-') { const o = s[p++]; const r = term(); const a = l; l = o === '+' ? (e => a(e) + r(e)) : (e => a(e) - r(e)); } return l; }
+    function term() { let l = unary(); while (peek() === '*' || peek() === '/') { const o = s[p++]; const r = unary(); const a = l; l = o === '*' ? (e => a(e) * r(e)) : (e => a(e) / r(e)); } return l; }
+    function unary() { if (peek() === '-') { p++; const u = unary(); return e => -u(e); } if (peek() === '+') { p++; return unary(); } return power(); }
+    function power() { const b = atom(); if (peek() === '^') { p++; const x = unary(); return e => Math.pow(b(e), x(e)); } return b; }
+    function atom() {
+      const c = peek();
+      if (c === '(') { p++; const e = expr(); if (peek() !== ')') throw new Error('paréntesis'); p++; return e; }
+      let m = /^[0-9]*\.?[0-9]+(e[+-]?[0-9]+)?/i.exec(s.slice(p));
+      if (m) { p += m[0].length; const n = parseFloat(m[0]); return () => n; }
+      m = /^[A-Za-z_][A-Za-z_0-9]*/.exec(s.slice(p));
+      if (m) {
+        const id = m[0]; p += id.length;
+        if (peek() === '(') {
+          p++; const a = expr(); if (peek() !== ')') throw new Error('paréntesis'); p++;
+          const f = FNS[id]; if (!f) throw new Error('función ' + id);
+          return e => f(a(e));
+        }
+        if (id === 'pi') return () => Math.PI;
+        if (vars.includes(id)) return e => e[id];
+        throw new Error('símbolo ' + id);
+      }
+      throw new Error('no entendí ' + s.slice(p, p + 5));
+    }
+    const f = expr(); if (p < s.length) throw new Error('sobra ' + s.slice(p));
+    return f;
+  }
+  function numeric(e, vars, env) { try { const v = compile(e, vars || [])(env || {}); return isFinite(v) ? v : null; } catch (x) { return null; } }
+  function fmt(n) {
+    if (n === null || n === undefined) return null;
+    if (Math.abs(n) < 1e-12) return '0';
+    let s = Math.abs(n) >= 1e6 || Math.abs(n) < 1e-4 ? n.toExponential(5) : String(+n.toFixed(6));
+    return s;
+  }
+  function gauss(f, a, b, panels) {
+    const X = [-0.9602898564975363, -0.7966664774136267, -0.5255324099163290, -0.1834346424956498, 0.1834346424956498, 0.5255324099163290, 0.7966664774136267, 0.9602898564975363];
+    const W = [0.1012285362903763, 0.2223810344533745, 0.3137066458778873, 0.3626837833783620, 0.3626837833783620, 0.3137066458778873, 0.2223810344533745, 0.1012285362903763];
+    panels = panels || 200; let tot = 0; const h = (b - a) / panels;
+    for (let k = 0; k < panels; k++) {
+      const lo = a + k * h, mid = lo + h / 2;
+      for (let q = 0; q < 8; q++) tot += W[q] * f(mid + X[q] * h / 2) * h / 2;
+    }
+    return tot;
+  }
+
+  /* ================= formato de salida ================= */
+  function topAddSub(tex) {
+    let d = 0;
+    for (let i = 0; i < tex.length; i++) {
+      const c = tex[i];
+      if (c === '{' || c === '(' || c === '[') d++;
+      else if (c === '}' || c === ')' || c === ']') d--;
+      else if ((c === '+' || c === '-') && d === 0 && i > 0) return true;
+    }
+    return false;
+  }
+  function ijk(texs) {
+    const u = ['\\mathbf{i}', '\\mathbf{j}', '\\mathbf{k}'];
+    let out = '';
+    texs.forEach((t, k) => {
+      if (t === '0') return;
+      let neg = false, body = t;
+      if (body[0] === '-' && !topAddSub(body.slice(1))) { neg = true; body = body.slice(1); }
+      const term = body === '1' ? u[k] : ((topAddSub(body) || body[0] === '-') ? `\\left(${body}\\right)` : body) + u[k];
+      out += (out === '' ? (neg ? '-' : '') : (neg ? ' - ' : ' + ')) + term;
+    });
+    return out || '0';
+  }
+  const angle = texs => `\\left\\langle ${texs.join(',\\ ')}\\right\\rangle`;
+
+  function vecResult(label, algComps, isVec, opts) {
+    opts = opts || {};
+    const texs = algComps.map(latex);
+    const r = { label, vec: isVec, comps: texs };
+    if (isVec) { r.angle = angle(texs); r.ijk = ijk(texs); } else r.scalar = texs[0];
+    if (opts.suffix) { r.angle = r.angle && r.angle + opts.suffix; r.ijk = r.ijk && r.ijk + opts.suffix; r.scalar = r.scalar && r.scalar + opts.suffix; }
+    const nums = algComps.map(c => numeric(c, [], {}));
+    if (!opts.noApprox && nums.every(n => n !== null)) {
+      const needs = algComps.some(c => /pi|sqrt|log|exp|sin|cos|tan|\^\(?[-0-9]*\/|\/[0-9]/.test(c) && !/^-?[0-9]+$/.test(c));
+      if (needs) {
+        const f = nums.map(fmt);
+        r.approx = isVec ? angle(f) + '\\ =\\ ' + ijk(f) : f[0];
+        r.approxIsVec = isVec;
+      }
+    }
+    return r;
+  }
+
+  /* ================= operaciones ================= */
+  const hasVar = (c, v) => new RegExp('(?<![A-Za-z])' + v + '(?![A-Za-z])').test(c);
+  function normVar(v) { v = (v || 't').trim().replace(/^\\/, ''); if (!/^[A-Za-z]$/.test(v) || 'ijke'.includes(v)) throw new Error('La variable debe ser una letra (distinta de e, i, j, k).'); return v; }
+  const norm = comps => SIMP(`sqrt(${comps.map(c => `(${c})^2`).join('+')})`);
+
+  function opDerivar(inp) {
+    const v = normVar(inp.v); const P = parseVector(inp.f); A().run('clearall');
+    const r1 = P.comps.map(c => D(c, v)); const r2 = r1.map(c => D(c, v));
+    const res = [];
+    const isV = P.vec, sc = isV ? '' : '';
+    res.push(vecResult(isV ? `\\mathbf{r}'(${v})` : `f'(${v})`, r1, isV));
+    res.push(vecResult(isV ? `\\mathbf{r}''(${v})` : `f''(${v})`, r2, isV));
+    if (isV) { const sp = norm(r1); res.push({ label: `\\lVert\\mathbf{r}'(${v})\\rVert`, vec: false, scalar: latex(sp), approx: needsApprox(sp) ? fmt(numeric(sp, [v], {})) : null, comps: [] }); }
+    if (inp.t0 && inp.t0.trim()) {
+      const t0 = parseScalar(inp.t0, 't₀'); const t0tex = latex(t0);
+      const ev = c => SIMP(SUBST(t0, v, c));
+      res.push({ sep: `${v}=${t0tex}` });
+      res.push(vecResult(isV ? `\\mathbf{r}(${t0tex})` : `f(${t0tex})`, P.comps.map(ev), isV));
+      res.push(vecResult(isV ? `\\mathbf{r}'(${t0tex})` : `f'(${t0tex})`, r1.map(ev), isV));
+      res.push(vecResult(isV ? `\\mathbf{r}''(${t0tex})` : `f''(${t0tex})`, r2.map(ev), isV));
+      if (isV) { const sp = norm(r1.map(ev)); res.push({ label: `\\lVert\\mathbf{r}'(${t0tex})\\rVert`, vec: false, scalar: latex(sp), approx: needsApprox(sp) ? fmt(numeric(sp, [], {})) : null, comps: [] }); }
+    }
+    return res;
+  }
+  const needsApprox = e => /pi|sqrt|log|exp|sin|cos|tan|\^\(?[-0-9]*\/|\/[0-9]/.test(e) && !/^-?[0-9]+$/.test(e) && numeric(e, [], {}) !== null;
+
+  function opIntegrar(inp) {
+    const v = normVar(inp.v); const P = parseVector(inp.f); A().run('clearall');
+    const res = []; const isV = P.vec;
+    const hasB = inp.a && inp.a.trim() && inp.b && inp.b.trim();
+    const anti = P.comps.map(c => INTEG(c, v));
+    if (!hasB) {
+      const texs = anti.map(latex);
+      const names = isV ? ['C_1', 'C_2', 'C_3'] : ['C'];
+      const withC = texs.map((t, k) => (t === '0' ? names[k] : t + ' + ' + names[k]));
+      const r = { label: isV ? `\\int \\mathbf{r}(${v})\\,d${v}` : `\\int f(${v})\\,d${v}`, vec: isV, comps: withC };
+      if (isV) { r.angle = angle(texs) + ' + \\mathbf{C}'; r.ijk = ijk(texs) + ' + \\mathbf{C}'; } else r.scalar = withC[0];
+      res.push(r);
+    } else {
+      const a = parseScalar(inp.a, 'El límite inferior'), b = parseScalar(inp.b, 'El límite superior');
+      const vals = anti.map(F => SIMP(SUB(SUBST(b, v, F), SUBST(a, v, F))));
+      res.push(vecResult(isV ? `\\int_{${latex(a)}}^{${latex(b)}} \\mathbf{r}(${v})\\,d${v}` : `\\int_{${latex(a)}}^{${latex(b)}} f(${v})\\,d${v}`, vals, isV));
+    }
+    return res;
+  }
+
+  function opInicial(inp) {
+    const v = normVar(inp.v); const P = parseVector(inp.f); A().run('clearall');
+    if (!P.vec) throw new Error('La aceleración debe ser un vector.');
+    const n = P.comps.length;
+    const getVec = (tex, what) => { const q = parseVector(tex, n); if (!q.vec || q.comps.length !== n) throw new Error(what + ' debe ser un vector de ' + n + ' componentes.'); return q.comps; };
+    const v0 = getVec(inp.v0, 'v(t₁)'), r0 = getVec(inp.r0, 'r(t₂)');
+    const t1 = parseScalar(inp.t1, 't₁'), t2 = parseScalar(inp.t2, 't₂');
+    const V = P.comps.map(c => INTEG(c, v));
+    const vel = V.map((F, k) => SIMP(ADD(SUB(F, SUBST(t1, v, F)), v0[k])));
+    const R = vel.map(c => INTEG(c, v));
+    const pos = R.map((F, k) => SIMP(ADD(SUB(F, SUBST(t2, v, F)), r0[k])));
+    return [
+      vecResult(`\\mathbf{v}(${v})`, vel.map(c => run(`expand(${c})`)), true),
+      vecResult(`\\mathbf{r}(${v})`, pos.map(c => run(`expand(${c})`)), true)
+    ];
+  }
+
+  function opLongitud(inp) {
+    const v = normVar(inp.v); const P = parseVector(inp.f); A().run('clearall');
+    if (!P.vec) throw new Error('Para la longitud de arco usa una función vectorial.');
+    const a = parseScalar(inp.a, 'El límite inferior'), b = parseScalar(inp.b, 'El límite superior');
+    const r1 = P.comps.map(c => D(c, v));
+    const sp = norm(r1);
+    const res = [];
+    res.push({ label: `\\lVert\\mathbf{r}'(${v})\\rVert`, vec: false, scalar: latex(sp), comps: [] });
+    const aTex = latex(a), bTex = latex(b);
+    let exact = null;
+    try { const r = run(`defint(${sp},${v},${a},${b})`); if (!/defint\(|integral\(/.test(r)) exact = SIMP(r); } catch (e) { exact = null; }
+    const an = numeric(a, [], {}), bn = numeric(b, [], {});
+    let approx = null;
+    if (an !== null && bn !== null) {
+      let f; try { f = compile(sp, [v]); } catch (e) { f = null; }
+      if (f) approx = gauss(x => f({ [v]: x }), an, bn, 300);
+    }
+    const lab = `L=\\int_{${aTex}}^{${bTex}}\\lVert\\mathbf{r}'(${v})\\rVert\\,d${v}`;
+    if (exact) {
+      const o = { label: lab, vec: false, scalar: latex(exact), comps: [] };
+      const en = numeric(exact, [], {}); o.approx = fmt(en !== null ? en : approx);
+      res.push(o);
+    } else if (approx !== null) {
+      res.push({ label: lab, vec: false, scalar: `\\int_{${aTex}}^{${bTex}} ${latex(sp)}\\,d${v}`, approx: fmt(approx), comps: [] });
+    } else throw new Error('No se pudo calcular la longitud de arco.');
+    return res;
+  }
+
+  const cross = (u, w) => [SIMP(SUB(MUL(u[1], w[2]), MUL(u[2], w[1]))), SIMP(SUB(MUL(u[2], w[0]), MUL(u[0], w[2]))), SIMP(SUB(MUL(u[0], w[1]), MUL(u[1], w[0])))];
+  const dot = (u, w) => SIMP(u.map((x, k) => `(${x})*(${w[k]})`).join('+'));
+  const scale = (u, s) => u.map(x => SIMP(`(${x})/(${s})`));
+
+  function opTNB(inp) {
+    const v = normVar(inp.v); const P = parseVector(inp.f); A().run('clearall');
+    if (!P.vec) throw new Error('T, N y B necesitan una función vectorial.');
+    let comps = P.comps.slice(); while (comps.length < 3) comps.push('0');
+    const r1 = comps.map(c => D(c, v)), r2 = r1.map(c => D(c, v));
+    const res = [];
+    if (inp.t0 && inp.t0.trim()) {
+      const t0 = parseScalar(inp.t0, 't₀'); const t0t = latex(t0);
+      const ev = c => SIMP(SUBST(t0, v, c));
+      const v0 = r1.map(ev), a0 = r2.map(ev);
+      const sp = norm(v0);
+      if (sp === '0') throw new Error('r\'(t₀) = 0: la curva no es suave en ese punto, T no está definido.');
+      const T = scale(v0, sp);
+      const va = dot(v0, a0);
+      // T' = (a|v|^2 - v (v·a)) / |v|^3
+      const Tp = v0.map((x, k) => SIMP(`((${a0[k]})*(${sp})^2-(${x})*(${va}))/(${sp})^3`));
+      const nTp = norm(Tp);
+      res.push(vecResult(`\\mathbf{r}'(${t0t})`, v0, true));
+      res.push({ label: `\\lVert\\mathbf{r}'(${t0t})\\rVert`, vec: false, scalar: latex(sp), comps: [], approx: needsApprox(sp) ? fmt(numeric(sp, [], {})) : null });
+      res.push(vecResult(`\\mathbf{T}(${t0t})`, T, true));
+      if (nTp === '0') {
+        res.push({ label: `\\mathbf{N}(${t0t}),\\ \\mathbf{B}(${t0t})`, vec: false, scalar: '\\text{No definidos: } \\mathbf{T}\'(t_0)=\\mathbf{0}', comps: [] });
+      } else {
+        const N = scale(Tp, nTp), B = cross(T, N);
+        res.push(vecResult(`\\mathbf{N}(${t0t})`, N, true));
+        res.push(vecResult(`\\mathbf{B}(${t0t})`, B, true));
+        const cv = cross(v0, a0); const kap = SIMP(`${norm(cv)}/(${sp})^3`);
+        res.push({ label: `\\kappa(${t0t})`, vec: false, scalar: latex(kap), comps: [], approx: needsApprox(kap) ? fmt(numeric(kap, [], {})) : null });
+      }
+    } else {
+      const sp = norm(r1);
+      const T = scale(r1, sp);
+      res.push(vecResult(`\\mathbf{r}'(${v})`, r1, true));
+      res.push({ label: `\\lVert\\mathbf{r}'(${v})\\rVert`, vec: false, scalar: latex(sp), comps: [] });
+      res.push(vecResult(`\\mathbf{T}(${v})`, T, true));
+      const Tp = T.map(c => SIMP(D(c, v)));
+      const nTp = norm(Tp);
+      if (nTp === '0') { res.push({ label: `\\mathbf{N},\\ \\mathbf{B}`, vec: false, scalar: '\\text{No definidos: } \\mathbf{T}\'=\\mathbf{0}', comps: [] }); }
+      else {
+        const N = scale(Tp, nTp), B = cross(T, N);
+        res.push(vecResult(`\\mathbf{N}(${v})`, N, true));
+        res.push(vecResult(`\\mathbf{B}(${v})`, B, true));
+        const cv = cross(r1, r2.map(c => c)); const kap = SIMP(`${norm(cv)}/(${sp})^3`);
+        res.push({ label: `\\kappa(${v})`, vec: false, scalar: latex(kap), comps: [] });
+      }
+    }
+    return res;
+  }
+
+  function calculate(mode, inp) {
+    switch (mode) {
+      case 'der': return opDerivar(inp);
+      case 'int': return opIntegrar(inp);
+      case 'ini': return opInicial(inp);
+      case 'arc': return opLongitud(inp);
+      case 'tnb': return opTNB(inp);
+    }
+    throw new Error('Modo desconocido');
+  }
+
+  return { calculate, parseVector, parseScalar, conv, preprocess, latex, compile, run };
+})();
+if (typeof module !== 'undefined') module.exports = CalcEngine;
+
+/* Convierte lo que escribe el usuario (texto tipo calculadora) a LaTeX para dibujarlo en notación natural. */
+const Disp = (function () {
+  'use strict';
+  const FNS = {
+    sen: '\\sen', sin: '\\sin', cos: '\\cos', tan: '\\tan', tg: '\\tan', sec: '\\sec', csc: '\\csc', cot: '\\cot',
+    ln: '\\ln', log: '\\log', exp: '\\exp', asen: '\\arcsen', asin: '\\arcsin', arcsen: '\\arcsen', arcsin: '\\arcsin',
+    acos: '\\arccos', arccos: '\\arccos', atan: '\\arctan', arctan: '\\arctan', sinh: '\\sinh', senh: '\\senh', cosh: '\\cosh', tanh: '\\tanh',
+    sqrt: 'sqrt', cbrt: 'cbrt', abs: 'abs', raiz: 'sqrt'
+  };
+  const NAMES = Object.keys(FNS).sort((a, b) => b.length - a.length);
+
+  function tokenize(src) {
+    const s = src.replace(/−/g, '-').replace(/[·×]/g, '*').replace(/÷/g, '/').replace(/π/g, 'pi')
+      .replace(/²/g, '^2').replace(/³/g, '^3').replace(/⟨/g, '<').replace(/⟩/g, '>');
+    const toks = []; let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      let m;
+      if ((m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i)))) { toks.push({ t: 'num', v: m[0] }); i += m[0].length; continue; }
+      if ((m = /^[A-Za-z]+/.exec(s.slice(i)))) {
+        const word = m[0], after = s.slice(i + word.length).trimStart()[0];
+        let cut = -1, nm = null;
+        for (let p = 0; p < word.length; p++) {
+          const tail = word.slice(p).toLowerCase();
+          if (tail === 'pi') { cut = p; nm = 'pi'; break; }
+          if (FNS[tail] && after === '(') { cut = p; nm = tail; break; }
+        }
+        const letters = cut < 0 ? word : word.slice(0, cut);
+        for (const ch of letters) toks.push({ t: 'id', v: ch });
+        if (nm === 'pi') toks.push({ t: 'pi' }); else if (nm) toks.push({ t: 'fn', v: nm });
+        i += word.length; continue;
+      }
+      if ('+-*/^(),<>'.includes(c)) { toks.push({ t: c }); i++; continue; }
+      i++; // símbolo desconocido: se ignora en la vista previa
+    }
+    return toks;
+  }
+
+  function toTex(src) {
+    const toks = tokenize(src); let p = 0;
+    const peek = () => (toks[p] ? toks[p].t : null);
+    const SQ = '\\square';
+
+    function expr() {
+      let out = '';
+      if (peek() === '-') { p++; out = '-'; } else if (peek() === '+') p++;
+      out += term();
+      while (peek() === '+' || peek() === '-') { const op = toks[p++].t; out += op + term(); }
+      return out;
+    }
+    const startsFactor = t => t === 'num' || t === 'id' || t === 'pi' || t === 'fn' || t === '(' || t === '<';
+    function term() {
+      if (!startsFactor(peek())) return SQ;
+      let num = [factor()];
+      for (;;) {
+        const t = peek();
+        if (t === '*') { p++; const g = startsFactor(peek()) ? factor() : { t: SQ }; num.push({ t: '\\cdot ' + g.t }); }
+        else if (t === '/') {
+          p++; const g = startsFactor(peek()) ? factor() : { t: SQ };
+          const n = num.length === 1 && num[0].inner !== undefined ? num[0].inner : num.map(x => x.t).join('');
+          num = [{ t: '\\frac{' + n + '}{' + (g.inner !== undefined ? g.inner : g.t) + '}' }];
+        } else if (startsFactor(t)) {
+          const g = factor(); const prev = num[num.length - 1].t;
+          num.push({ t: (/\d$/.test(prev) && /^\d/.test(g.t) ? '\\cdot ' : '') + g.t, inner: undefined });
+        } else break;
+      }
+      return num.map(x => x.t).join('');
+    }
+    function factor() {
+      let b = atom();
+      while (peek() === '^') {
+        p++;
+        let e;
+        if (peek() === '(') { p++; e = expr(); if (peek() === ')') p++; }
+        else if (peek() === '-') { p++; e = '-' + (expAtom() || SQ); }
+        else e = expAtom() || SQ;
+        b = { t: '{' + b.t + '}^{' + e + '}' };
+        b.t = b.t.replace(/^\{([^{}]*)\}\^/, '$1^');
+      }
+      return b;
+    }
+    function expAtom() {
+      const t = toks[p]; if (!t) return null;
+      if (t.t === 'num') { p++; return t.v; }
+      if (t.t === 'id') { p++; return unit(t.v); }
+      if (t.t === 'pi') { p++; return '\\pi '; }
+      return null;
+    }
+    const unit = v => (v === 'i' || v === 'j' || v === 'k') ? '\\mathbf{' + v + '}' : v;
+    function atom() {
+      const t = toks[p++];
+      if (t.t === 'num') return { t: t.v };
+      if (t.t === 'id') return { t: unit(t.v) };
+      if (t.t === 'pi') return { t: '\\pi ' };
+      if (t.t === '(') { const e = expr(); if (peek() === ')') p++; return { t: '\\left(' + e + '\\right)', inner: e }; }
+      if (t.t === '<') {
+        const parts = [expr()];
+        while (peek() === ',') { p++; parts.push(expr()); }
+        if (peek() === '>') p++;
+        return { t: '\\left\\langle ' + parts.join(',\\ ') + '\\right\\rangle' };
+      }
+      if (t.t === 'fn') {
+        let arg = SQ;
+        if (peek() === '(') { p++; arg = peek() === ')' ? SQ : expr(); if (peek() === ')') p++; }
+        const k = FNS[t.v];
+        if (k === 'sqrt') return { t: '\\sqrt{' + arg + '}' };
+        if (k === 'cbrt') return { t: '\\sqrt[3]{' + arg + '}' };
+        if (k === 'abs') return { t: '\\left|' + arg + '\\right|' };
+        return { t: k + '\\left(' + arg + '\\right)' };
+      }
+      return { t: SQ };
+    }
+    if (!toks.length) return '';
+    let out = expr();
+    while (p < toks.length) { // sobrantes (por ejemplo un ")" extra): se omiten
+      if (peek() === ',' || peek() === ')' || peek() === '>') { p++; continue; }
+      out += expr();
+      if (p < toks.length && !startsFactor(peek()) && peek() !== '+' && peek() !== '-') p++;
+    }
+    return out;
+  }
+  return { toTex };
+})();
+if (typeof module !== 'undefined') module.exports = Disp;
+
+</script>
+<script>
+/* ---------- calculadora: teclado físico, autocompletado y teclado opcional ---------- */
+(function () {
+  const cdlg = document.getElementById('calc');
+  const $c = id => document.getElementById(id);
+
+  const MODES = {
+    der: { name: 'Derivar', fields: [{ id: 'f', label: 'r(t)', ph: 't e^(4t) i + (t^3+3t) j + 4 sen(5t) k' }, { id: 't0', label: 't₀', ph: 'opcional' }] },
+    int: { name: 'Integrar', fields: [{ id: 'f', label: 'r(t)', ph: '6cbrt(t) i + e^(5t) j - cos(4t) k' }, { id: 'a', label: 'desde', ph: 'opcional' }, { id: 'b', label: 'hasta', ph: 'opcional' }] },
+    ini: { name: 'Valores iniciales', fields: [{ id: 'f', label: 'a(t)', ph: '4t i + 3 j + 6t^2 k' }, { id: 't1', label: 't₁', ph: '1' }, { id: 'v0', label: 'v(t₁)', ph: '5i' }, { id: 't2', label: 't₂', ph: '0' }, { id: 'r0', label: 'r(t₂)', ph: '7i - 11j + 6k' }] },
+    arc: { name: 'Arco', fields: [{ id: 'f', label: 'r(t)', ph: 'cos(t) i + sen(t) j + t^2 k' }, { id: 'a', label: 'desde', ph: '0' }, { id: 'b', label: 'hasta', ph: 'pi' }] },
+    tnb: { name: 'T N B', fields: [{ id: 'f', label: 'r(t)', ph: 'cos(3t) i + sen(3t) j + 4t k' }, { id: 't0', label: 't₀', ph: 'vacío = general' }] }
+  };
+  const EXAMPLES = [
+    { n: 1, mode: 'der', v: { f: 't e^(4t) i + (t^3+3t) j + 4 sen(5t) k', t0: '0' } },
+    { n: 2, mode: 'der', v: { f: 't^2 sen(t) i + (4t^3 - 6e^(2t)) j + 6sqrt(t) k', t0: '' } },
+    { n: 3, mode: 'der', v: { f: '5sen(2t) i + 4cos(3t) j + cbrt(12t+1) k', t0: '0' } },
+    { n: 4, mode: 'int', v: { f: '6cbrt(t) i + e^(5t) j - cos(4t) k', a: '', b: '' } },
+    { n: 5, mode: 'ini', v: { f: '4t i + 3 j + 6t^2 k', t1: '1', v0: '5i', t2: '0', r0: '7i - 11j + 6k' } },
+    { n: 6, mode: 'arc', v: { f: 'cos(t) i + sen(t) j + t^2 k', a: '0', b: 'pi' } },
+    { n: 7, mode: 'tnb', v: { f: 'cos(3t) i + sen(3t) j + 4t k', t0: '0' } }
+  ];
+
+  /* ===== autocompletado ===== */
+  const WORDS = [
+    { w: 'sen', ins: 'sen()', d: 'seno' }, { w: 'sin', ins: 'sin()', d: 'seno' },
+    { w: 'cos', ins: 'cos()', d: 'coseno' }, { w: 'tan', ins: 'tan()', d: 'tangente' },
+    { w: 'sec', ins: 'sec()', d: 'secante' }, { w: 'csc', ins: 'csc()', d: 'cosecante' }, { w: 'cot', ins: 'cot()', d: 'cotangente' },
+    { w: 'senh', ins: 'senh()', d: 'seno hip.' }, { w: 'sinh', ins: 'sinh()', d: 'seno hip.' }, { w: 'cosh', ins: 'cosh()', d: 'coseno hip.' }, { w: 'tanh', ins: 'tanh()', d: 'tangente hip.' },
+    { w: 'arcsen', ins: 'arcsen()', d: 'seno inverso' }, { w: 'arcsin', ins: 'arcsin()', d: 'seno inverso' },
+    { w: 'arccos', ins: 'arccos()', d: 'coseno inverso' }, { w: 'arctan', ins: 'arctan()', d: 'tangente inversa' },
+    { w: 'ln', ins: 'ln()', d: 'log natural' }, { w: 'log', ins: 'log()', d: 'log base 10' }, { w: 'exp', ins: 'exp()', d: 'eˣ' },
+    { w: 'sqrt', ins: 'sqrt()', d: 'raíz cuadrada' }, { w: 'cbrt', ins: 'cbrt()', d: 'raíz cúbica' }, { w: 'abs', ins: 'abs()', d: 'valor absoluto' },
+    { w: 'pi', ins: 'pi', d: 'π', plain: true }, { w: 'vec', ins: '<,,>', d: '⟨a, b, c⟩', at: 1 }
+  ];
+  const ONE = /^[scalpv]$/i;
+
+  let mode = 'der', activeId = 'f';
+  const store = {};
+  const nodes = {};
+  const timers = {};
+
+  const cfields = $c('cfields');
+  function buildFields() {
+    cfields.textContent = ''; Object.keys(nodes).forEach(k => delete nodes[k]);
+    MODES[mode].fields.forEach(f => {
+      const w = document.createElement('div'); w.className = 'fb'; w.dataset.id = f.id;
+      w.innerHTML = '<div class="fl"></div><div class="fw"><input class="fi" type="text" spellcheck="false" autocomplete="off" autocapitalize="none" autocorrect="off" role="combobox" aria-autocomplete="list" aria-expanded="false"><div class="ac" role="listbox" hidden></div></div><div class="pv"></div><div class="st"></div>';
+      w.querySelector('.fl').textContent = f.label;
+      const input = w.querySelector('.fi'); input.placeholder = f.ph || ''; input.value = store[f.id] || ''; input.setAttribute('aria-label', f.label);
+      const n = { input, pv: w.querySelector('.pv'), st: w.querySelector('.st'), ac: w.querySelector('.ac'), items: [], sel: 0, f };
+      nodes[f.id] = n;
+      input.addEventListener('focus', () => { activeId = f.id; refreshAC(n); });
+      input.addEventListener('blur', () => setTimeout(() => hideAC(n), 160));
+      input.addEventListener('input', () => { store[f.id] = input.value; schedule(f.id); refreshAC(n); });
+      input.addEventListener('click', () => refreshAC(n));
+      input.addEventListener('keyup', e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) refreshAC(n); });
+      input.addEventListener('keydown', e => onKeyDown(e, n));
+      cfields.appendChild(w);
+      update(f.id);
+    });
+    if (!MODES[mode].fields.some(f => f.id === activeId)) activeId = 'f';
+  }
+
+  /* ===== vista previa y errores ===== */
+  function schedule(id) { clearTimeout(timers[id]); timers[id] = setTimeout(() => update(id), 120); }
+  function update(id) {
+    const n = nodes[id]; if (!n) return;
+    const v = n.input.value.trim();
+    n.pv.textContent = ''; n.st.textContent = '';
+    if (!v) return;
+    try {
+      const tex = Disp.toTex(v);
+      if (tex) { n.pv.textContent = '\\(\\displaystyle ' + tex + '\\)'; typeset(n.pv); }
+    } catch (e) { /* sin vista previa */ }
+    if (typeof Algebrite === 'undefined') return;
+    try {
+      if (['t0', 'a', 'b', 't1', 't2'].includes(id)) CalcEngine.parseScalar(v); else CalcEngine.parseVector(v);
+    } catch (e) { n.st.textContent = '⚠ ' + e.message; }
+  }
+
+  /* ===== autocompletado: lógica ===== */
+  function wordBeforeCaret(inp) {
+    const pos = inp.selectionStart;
+    if (pos !== inp.selectionEnd) return null;
+    const m = /[A-Za-z]+$/.exec(inp.value.slice(0, pos));
+    return m ? { w: m[0], start: pos - m[0].length, pos } : null;
+  }
+  function refreshAC(n) {
+    const wb = wordBeforeCaret(n.input);
+    if (!wb) return hideAC(n);
+    const lw = wb.w.toLowerCase();
+    if (lw.length === 1 && !ONE.test(lw)) return hideAC(n);
+    const nextCh = n.input.value[wb.pos];
+    let items = WORDS.filter(x => x.w.startsWith(lw) && !(x.w === lw && (nextCh === '(' || x.plain)));
+    if (!items.length) return hideAC(n);
+    items = items.slice(0, 6);
+    n.items = items; n.sel = 0; n.wb = wb;
+    n.ac.textContent = '';
+    items.forEach((x, k) => {
+      const r = document.createElement('div'); r.className = 'aci' + (k === 0 ? ' sel' : ''); r.setAttribute('role', 'option');
+      r.innerHTML = '<b></b><span></span>' + (k === 0 ? '<kbd>Tab</kbd>' : '');
+      r.querySelector('b').textContent = x.w + (x.plain || x.w === 'vec' ? '' : '()'); r.querySelector('span').textContent = x.d;
+      r.addEventListener('mousedown', e => { e.preventDefault(); accept(n, k); });
+      n.ac.appendChild(r);
+    });
+    n.ac.hidden = false; n.input.setAttribute('aria-expanded', 'true');
+  }
+  function hideAC(n) { n.ac.hidden = true; n.items = []; n.input.setAttribute('aria-expanded', 'false'); }
+  function moveSel(n, d) {
+    n.sel = (n.sel + d + n.items.length) % n.items.length;
+    [...n.ac.children].forEach((c, k) => {
+      c.classList.toggle('sel', k === n.sel);
+      const kb = c.querySelector('kbd'); if (kb) kb.remove();
+      if (k === n.sel) c.insertAdjacentHTML('beforeend', '<kbd>Tab</kbd>');
+    });
+  }
+  function accept(n, k) {
+    const it = n.items[k]; const wb = wordBeforeCaret(n.input) || n.wb; if (!it || !wb) return;
+    const inp = n.input; const v = inp.value;
+    let ins = it.ins, back = it.plain ? 0 : (it.at !== undefined ? it.ins.length - it.at : 1);
+    if (v[wb.pos] === '(' && !it.plain && it.w !== 'vec') { ins = it.w; back = -1; }
+    inp.value = v.slice(0, wb.start) + ins + v.slice(wb.pos);
+    let c = wb.start + ins.length - (back === -1 ? 0 : back);
+    if (back === -1) c = wb.start + ins.length + 1;
+    inp.setSelectionRange(c, c);
+    store[n.f.id] = inp.value; hideAC(n); update(n.f.id); inp.focus();
+  }
+
+  /* ===== teclado físico: cierre automático de paréntesis ===== */
+  function onKeyDown(e, n) {
+    const inp = n.input;
+    if (!n.ac.hidden && n.items.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); return moveSel(n, 1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); return moveSel(n, -1); }
+      if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); return accept(n, n.sel); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return hideAC(n); }
+    }
+    if (e.key === 'Enter') { e.preventDefault(); return calc(); }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const s = inp.selectionStart, t = inp.selectionEnd, v = inp.value;
+    if (e.key === '(' || e.key === '<') {
+      e.preventDefault(); const close = e.key === '(' ? ')' : '>';
+      inp.value = v.slice(0, s) + e.key + v.slice(s, t) + close + v.slice(t);
+      inp.setSelectionRange(s + 1, s + 1 + (t - s)); fire(inp);
+    } else if ((e.key === ')' || e.key === '>') && s === t && v[s] === e.key) {
+      e.preventDefault(); inp.setSelectionRange(s + 1, s + 1); refreshAC(n);
+    } else if (e.key === 'Backspace' && s === t && s > 0 && ((v[s - 1] === '(' && v[s] === ')') || (v[s - 1] === '<' && v[s] === '>'))) {
+      e.preventDefault(); inp.value = v.slice(0, s - 1) + v.slice(s + 1); inp.setSelectionRange(s - 1, s - 1); fire(inp);
+    }
+  }
+  function fire(inp) { inp.dispatchEvent(new Event('input', { bubbles: true })); }
+
+  /* ===== teclado en pantalla (opcional) ===== */
+  const KEYS = [
+    ['sen', 'sen()', 1], ['sin', 'sin()', 1], ['cos', 'cos()', 1], ['tan', 'tan()', 1], ['ln', 'ln()', 1], ['log', 'log()', 1],
+    ['sen⁻¹', 'arcsen()', 1], ['cos⁻¹', 'arccos()', 1], ['tan⁻¹', 'arctan()', 1], ['π', 'pi', 0], ['e', 'e', 0], ['t', 't', 0],
+    ['a⁄b', '/', 0], ['√', 'sqrt()', 1], ['∛', 'cbrt()', 1], ['xⁿ', '^()', 1], ['x²', '^2', 0], ['x', 'x', 0],
+    ['i', ' i', 0], ['j', ' j', 0], ['k', ' k', 0], ['⟨ ⟩', '<>', 1], [',', ', ', 0], ['eˣ', 'e^()', 1],
+    ['7', '7', 0, 'num'], ['8', '8', 0, 'num'], ['9', '9', 0, 'num'], ['(', '(', 0, 'op'], [')', ')', 0, 'op'], ['⌫', '', 0, 'del', 'back'],
+    ['4', '4', 0, 'num'], ['5', '5', 0, 'num'], ['6', '6', 0, 'num'], ['×', '*', 0, 'op'], ['÷', '/', 0, 'op'], ['AC', '', 0, 'del', 'ac'],
+    ['1', '1', 0, 'num'], ['2', '2', 0, 'num'], ['3', '3', 0, 'num'], ['+', ' + ', 0, 'op'], ['−', ' - ', 0, 'op'], ['◀', '', 0, 'op', 'left'],
+    ['0', '0', 0, 'num'], ['.', '.', 0, 'num'], ['^', '^()', 1, 'op'], ['▶', '', 0, 'op', 'right'], ['=', '', 0, 'eq', 'calc']
+  ];
+  const keys = $c('ckeys');
+  KEYS.forEach(([label, ins, back, cls, act]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'key ' + (cls || 'fn'); b.textContent = label;
+    if (act === 'calc') b.style.gridColumn = 'span 2';
+    b.addEventListener('mousedown', e => e.preventDefault());
+    b.addEventListener('click', () => keypress(ins, back, act));
+    keys.appendChild(b);
+  });
+  function keypress(ins, back, act) {
+    if (act === 'calc') return calc();
+    const n = nodes[activeId] || nodes.f; if (!n) return;
+    const inp = n.input; inp.focus();
+    const s = inp.selectionStart, t = inp.selectionEnd, v = inp.value;
+    if (act === 'left') { const c = Math.max(0, s - 1); inp.setSelectionRange(c, c); return refreshAC(n); }
+    if (act === 'right') { const c = Math.min(v.length, t + 1); inp.setSelectionRange(c, c); return refreshAC(n); }
+    if (act === 'ac') { inp.value = ''; return fire(inp); }
+    if (act === 'back') {
+      if (s !== t) inp.value = v.slice(0, s) + v.slice(t), inp.setSelectionRange(s, s);
+      else if (s > 0) { const two = (v[s - 1] === '(' && v[s] === ')') || (v[s - 1] === '<' && v[s] === '>'); inp.value = v.slice(0, s - 1) + v.slice(s + (two ? 1 : 0)); inp.setSelectionRange(s - 1, s - 1); }
+      return fire(inp);
+    }
+    if (ins === ')' && s === t && v[s] === ')') { inp.setSelectionRange(s + 1, s + 1); return; }
+    if (ins === '(') { inp.value = v.slice(0, s) + '(' + v.slice(s, t) + ')' + v.slice(t); inp.setSelectionRange(s + 1, s + 1 + (t - s)); return fire(inp); }
+    inp.value = v.slice(0, s) + ins + v.slice(t);
+    const c = s + ins.length - back; inp.setSelectionRange(c, c); fire(inp);
+  }
+  const grid = $c('cgrid'), kt = $c('ckt');
+  function setKeypad(on) {
+    grid.classList.toggle('kp', on); kt.setAttribute('aria-pressed', on ? 'true' : 'false');
+    try { localStorage.setItem('calc-kp', on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+  }
+  kt.addEventListener('click', () => setKeypad(!grid.classList.contains('kp')));
+  try { if (localStorage.getItem('calc-kp') === '1') setKeypad(true); } catch (e) { /* ignorar */ }
+
+  /* ===== pestañas y ejemplos ===== */
+  const tabs = $c('ctabs');
+  Object.keys(MODES).forEach(k => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.setAttribute('role', 'tab'); b.dataset.m = k; b.textContent = MODES[k].name;
+    b.addEventListener('click', () => setMode(k)); tabs.appendChild(b);
+  });
+  function setMode(m, focus) {
+    mode = m; activeId = 'f';
+    tabs.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.m === m ? 'true' : 'false'));
+    buildFields(); $c('cout').textContent = '';
+    if (focus !== false && nodes.f) nodes.f.input.focus();
+  }
+  const ex = $c('cex');
+  EXAMPLES.forEach(e => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'exchip'; b.textContent = 'Ej. ' + e.n;
+    b.addEventListener('click', () => {
+      Object.keys(store).forEach(k => delete store[k]);
+      Object.assign(store, e.v); setMode(e.mode, false); calc();
+    });
+    ex.appendChild(b);
+  });
+
+  /* ===== cálculo y resultados ===== */
+  function copy(text, btn) {
+    const done = () => { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '⧉'; }, 1100); };
+    const fb = () => { const ta = document.createElement('textarea'); ta.value = text; cdlg.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { } ta.remove(); };
+    try { navigator.clipboard.writeText(text).then(done, fb); } catch (e) { fb(); }
+  }
+  function row(tag, tex) {
+    const r = document.createElement('div'); r.className = 'rrow';
+    const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag;
+    const m = document.createElement('div'); m.className = 'rm'; m.textContent = '\\(\\displaystyle ' + tex + '\\)';
+    const c = document.createElement('button'); c.type = 'button'; c.className = 'cc'; c.textContent = '⧉'; c.title = 'Copiar LaTeX'; c.setAttribute('aria-label', 'Copiar LaTeX');
+    c.addEventListener('click', () => copy(tex, c));
+    r.append(t, m, c); return r;
+  }
+  function render(res, useSin) {
+    const out = $c('cout'); out.textContent = '';
+    const L = s => (s && useSin ? s.replace(/\\(arc)?sen/g, '\\$1sin') : s);
+    res.forEach(it => {
+      if (it.sep) { const s = document.createElement('div'); s.className = 'sepl'; s.textContent = '\\(' + it.sep + '\\)'; out.appendChild(s); return; }
+      const card = document.createElement('div'); card.className = 'res';
+      if (it.vec) {
+        card.appendChild(row('⟨⟩', L(it.label) + ' = ' + L(it.angle)));
+        card.appendChild(row('ijk', L(it.label) + ' = ' + L(it.ijk)));
+        if (it.approx) card.appendChild(row('≈', L(it.label) + ' \\approx ' + it.approx));
+      } else {
+        card.appendChild(row('=', L(it.label) + ' = ' + L(it.scalar)));
+        if (it.approx) card.appendChild(row('≈', '\\approx ' + it.approx));
+      }
+      out.appendChild(card);
+    });
+    typeset(out);
+  }
+  function msg(cls, text) { const o = $c('cout'); o.textContent = ''; const d = document.createElement('div'); d.className = cls; d.textContent = text; o.appendChild(d); }
+  function detectVar(inp) {
+    const all = Object.values(inp).join(' ').replace(/arcsen|arccos|arctan|arcsin|senh|sinh|cosh|tanh|sqrt|cbrt|asen|asin|acos|atan|raiz|sen|sin|cos|tan|sec|csc|cot|exp|abs|log|ln|pi|tg/gi, ' ');
+    return /t/.test(all) ? 't' : /x/.test(all) ? 'x' : 't';
+  }
+  function calc() {
+    Object.values(nodes).forEach(hideAC);
+    msg('cwait', '…');
+    setTimeout(() => {
+      try {
+        if (typeof Algebrite === 'undefined') throw new Error('Cargando el motor de cálculo, intenta de nuevo.');
+        const inp = {};
+        MODES[mode].fields.forEach(f => { inp[f.id] = (nodes[f.id] ? nodes[f.id].input.value : store[f.id] || '').trim(); });
+        if (!inp.f) throw new Error('Escribe la función.');
+        const joined = Object.values(inp).join(' ');
+        const useSin = /sin/i.test(joined) && !/sen/i.test(joined);
+        inp.v = detectVar(inp);
+        render(CalcEngine.calculate(mode, inp), useSin);
+      } catch (e) { msg('cerr', '⚠ ' + (e.message || e)); }
+    }, 30);
+  }
+  $c('cgo').addEventListener('click', calc);
+
+  $c('openCalc').addEventListener('click', () => {
+    document.documentElement.style.overflow = 'hidden';
+    if (!cdlg.open) cdlg.showModal();
+    if (!Object.keys(nodes).length) { Object.assign(store, EXAMPLES[0].v); setMode('der', false); }
+    if (nodes.f) nodes.f.input.focus();
+  });
+  cdlg.addEventListener('close', () => { document.documentElement.style.overflow = ''; });
+  $c('cclose').addEventListener('click', () => cdlg.close());
+  cdlg.addEventListener('mousedown', e => { if (e.target === cdlg) cdlg.close(); });
+})();
+
+</script>
